@@ -17,14 +17,21 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #1a1a2e, #16213e);
             color: white;
-            overflow: hidden;
             height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
         }
         
         #container {
             position: relative;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
             overflow: hidden;
         }
         
@@ -34,6 +41,7 @@
             height: 100%;
             overflow: hidden;
             z-index: 1;
+            background: #000;
         }
         
         #video {
@@ -158,7 +166,7 @@
         
         #debug-info {
             position: absolute;
-            top: 10px;
+            bottom: 10px;
             left: 10px;
             background: rgba(0, 0, 0, 0.7);
             padding: 10px;
@@ -193,6 +201,8 @@
             transition: all 0.3s ease;
             font-weight: 600;
             min-width: 200px;
+            z-index: 50;
+            position: relative;
         }
         
         .btn:hover {
@@ -217,6 +227,8 @@
             backdrop-filter: blur(5px);
             font-size: 16px;
             max-width: 90%;
+            z-index: 50;
+            position: relative;
         }
         
         .loading-text {
@@ -255,6 +267,20 @@
             padding: 15px;
             margin: 15px 0;
         }
+        
+        .permission-request {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid rgba(52, 152, 219, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            max-width: 90%;
+        }
+        
+        .permission-btn {
+            background: linear-gradient(to right, #3498db, #2980b9);
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
@@ -265,6 +291,13 @@
         <div id="compatibility-result"></div>
         <button id="retry-btn" class="btn btn-retry hidden">Reintentar</button>
         <button id="alternative-btn" class="btn btn-alternative hidden">Modo Alternativo</button>
+        <div id="permission-request" class="hidden">
+            <div class="permission-request">
+                <p>Para usar esta aplicación, necesitamos acceso a tu cámara.</p>
+                <p>Por favor, haz clic en el botón para otorgar permisos:</p>
+                <button id="enable-camera-btn" class="btn permission-btn">Activar Cámara</button>
+            </div>
+        </div>
     </div>
     
     <div id="container">
@@ -301,6 +334,7 @@
         let videoStream = null;
         let animationId = null;
         let cameraTimeout = null;
+        let permissionRequested = false;
         
         // Referencias a elementos de UI
         const loadingEl = document.getElementById('loading');
@@ -316,6 +350,8 @@
         const posterDesc = document.getElementById('poster-desc');
         const posterDetails = document.getElementById('poster-details');
         const compatibilityResult = document.getElementById('compatibility-result');
+        const permissionRequest = document.getElementById('permission-request');
+        const enableCameraBtn = document.getElementById('enable-camera-btn');
         
         // Base de datos de afiches
         const postersDB = {
@@ -463,10 +499,12 @@
             }
             
             // Configurar eventos
-            startBtn.addEventListener('click', startCamera);
+            startBtn.addEventListener('click', requestCameraAccess);
             retryBtn.addEventListener('click', () => {
                 location.reload();
             });
+            
+            enableCameraBtn.addEventListener('click', requestCameraAccess);
             
             alternativeBtn.addEventListener('click', () => {
                 showSuccess("Modo alternativo activado - Sin realidad aumentada");
@@ -478,13 +516,19 @@
             loadingStatus.textContent = "Preparado. Pulse 'Iniciar Cámara'";
         });
         
-        // Iniciar la cámara
-        async function startCamera() {
+        // Solicitar acceso a la cámara
+        async function requestCameraAccess() {
+            if (permissionRequested) return;
+            
+            permissionRequested = true;
             loadingStatus.textContent = "Solicitando acceso a la cámara...";
             startBtn.disabled = true;
             retryBtn.classList.add('hidden');
             alternativeBtn.classList.add('hidden');
             statusEl.textContent = "Iniciando cámara...";
+            
+            // Mostrar solicitud de permisos explícita
+            permissionRequest.classList.remove('hidden');
             
             try {
                 // Detener cualquier transmisión existente
@@ -504,6 +548,7 @@
                 
                 showDebugInfo("Acceso a cámara concedido");
                 loadingStatus.textContent = "Configurando flujo de video...";
+                permissionRequest.classList.add('hidden');
                 
                 video.srcObject = videoStream;
                 
@@ -517,7 +562,7 @@
                         clearTimeout(cameraTimeout);
                         setupCamera();
                     }
-                });
+                }, { once: true });
                 
                 // Opción 2: Usar evento loadeddata como respaldo
                 video.addEventListener('loadeddata', () => {
@@ -526,7 +571,7 @@
                         clearTimeout(cameraTimeout);
                         setupCamera();
                     }
-                });
+                }, { once: true });
                 
                 // Opción 3: Usar evento canplay como segundo respaldo
                 video.addEventListener('canplay', () => {
@@ -535,7 +580,7 @@
                         clearTimeout(cameraTimeout);
                         setupCamera();
                     }
-                });
+                }, { once: true });
                 
                 // Timeout de respaldo para casos donde los eventos no se disparan
                 cameraTimeout = setTimeout(() => {
@@ -570,6 +615,7 @@
             statusEl.textContent = "Error: " + errorMessage;
             retryBtn.classList.remove('hidden');
             alternativeBtn.classList.remove('hidden');
+            permissionRequest.classList.add('hidden');
         }
         
         // Configurar la cámara después de que esté lista

@@ -234,6 +234,14 @@
             text-align: left;
             margin: 20px 0;
         }
+        
+        .loading-fadeout {
+            animation: fadeOut 0.5s forwards;
+        }
+        
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -275,6 +283,7 @@
         let currentPoster = null;
         let videoStream = null;
         let animationId = null;
+        let videoReadyInterval = null;
         
         // Base de datos simulada de afiches por código QR
         const postersDB = {
@@ -316,13 +325,13 @@
         const debugInfo = document.getElementById('debug-info');
         
         // Inicialización
-        document.addEventListener('DOMContentLoaded', async () => {
+        document.addEventListener('DOMContentLoaded', () => {
             video = document.getElementById('video');
             qrCanvas = document.getElementById('qr-canvas');
             qrCtx = qrCanvas.getContext('2d');
             webglCanvas = document.getElementById('webgl-canvas');
             
-            // Configurar el canvas de Three.js
+            // Configurar Three.js
             initThreeJS();
             
             // Configurar eventos
@@ -337,17 +346,6 @@
             updateDebugInfo();
         });
         
-        // Verificar compatibilidad con WebGL
-        function isWebGLAvailable() {
-            try {
-                const canvas = document.createElement('canvas');
-                return !!(window.WebGLRenderingContext && 
-                    (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
-            } catch (e) {
-                return false;
-            }
-        }
-        
         // Inicializar Three.js
         function initThreeJS() {
             try {
@@ -355,13 +353,12 @@
                 renderer = new THREE.WebGLRenderer({
                     canvas: webglCanvas,
                     alpha: true,
-                    antialias: true,
-                    preserveDrawingBuffer: true
+                    antialias: true
                 });
                 
                 renderer.setPixelRatio(window.devicePixelRatio);
                 renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setClearColor(0x000000, 0); // Transparente
+                renderer.setClearColor(0x000000, 0);
                 
                 // Crear escena
                 scene = new THREE.Scene();
@@ -407,15 +404,8 @@
                 statusEl.textContent = "Cámara activada. Buscando códigos QR...";
                 startBtn.classList.add('hidden');
                 
-                // SOLUCIÓN AL PROBLEMA PRINCIPAL:
-                // Usar un enfoque robusto para detectar cuando la cámara está lista
-                await waitForVideoReady();
-                
-                // Ocultar pantalla de carga
-                hideLoadingScreen();
-                
-                // Iniciar bucle de detección y renderizado
-                animationId = requestAnimationFrame(detectAndRender);
+                // SOLUCIÓN DEFINITIVA: Usar un intervalo para verificar cuando el video está listo
+                startVideoReadyCheck();
                 
             } catch (error) {
                 console.error("Error al acceder a la cámara:", error);
@@ -423,42 +413,34 @@
             }
         }
         
-        // Función para esperar a que el video esté listo (SOLUCIÓN CLAVE)
-        function waitForVideoReady() {
-            return new Promise((resolve) => {
-                // Verificar si el video ya tiene dimensiones
+        // Verificar cuando el video está listo usando intervalo
+        function startVideoReadyCheck() {
+            clearInterval(videoReadyInterval);
+            videoReadyInterval = setInterval(() => {
                 if (video.videoWidth > 0 && video.videoHeight > 0) {
-                    resolve();
-                    return;
+                    clearInterval(videoReadyInterval);
+                    onVideoReady();
+                } else {
+                    loadingText.textContent = `Esperando video... (${Math.round(performance.now()/1000)}s)`;
                 }
-                
-                // Usar múltiples eventos para máxima compatibilidad
-                const onReady = () => {
-                    video.removeEventListener('loadedmetadata', onReady);
-                    video.removeEventListener('loadeddata', onReady);
-                    video.removeEventListener('canplay', onReady);
-                    resolve();
-                };
-                
-                video.addEventListener('loadedmetadata', onReady);
-                video.addEventListener('loadeddata', onReady);
-                video.addEventListener('canplay', onReady);
-                
-                // Timeout de seguridad
-                setTimeout(() => {
-                    console.warn("Advertencia: Los eventos de video no se activaron. Continuando de todos modos.");
-                    resolve();
-                }, 3000);
-            });
+            }, 100);
         }
         
-        // Ocultar la pantalla de carga con animación
-        function hideLoadingScreen() {
-            loadingEl.style.opacity = '0';
+        // Cuando el video está listo
+        function onVideoReady() {
+            // Configurar canvas QR
+            qrCanvas.width = video.videoWidth;
+            qrCanvas.height = video.videoHeight;
+            
+            // Ocultar pantalla de carga con animación
+            loadingEl.classList.add('loading-fadeout');
             setTimeout(() => {
                 loadingEl.classList.add('hidden');
                 debugInfo.classList.remove('hidden');
             }, 500);
+            
+            // Iniciar bucle de detección
+            animationId = requestAnimationFrame(detectAndRender);
         }
         
         // Manejar errores de la cámara
@@ -486,6 +468,14 @@
             startBtn.disabled = false;
             hideLoadingScreen();
             updateDebugInfo(errorMsg, false);
+        }
+        
+        // Ocultar la pantalla de carga
+        function hideLoadingScreen() {
+            loadingEl.classList.add('loading-fadeout');
+            setTimeout(() => {
+                loadingEl.classList.add('hidden');
+            }, 500);
         }
         
         // Bucle principal de detección y renderizado
@@ -587,8 +577,7 @@
         function updateDebugInfo(message = "", isSuccess = false) {
             if (!debugInfo) return;
             
-            let info = `WebGL: ${isWebGLAvailable() ? 'Sí' : 'No'}`;
-            info += ` | Cámara: ${videoStream ? 'Activada' : 'Inactiva'}`;
+            let info = `WebGL: Sí | Cámara: ${videoStream ? 'Activada' : 'Inactiva'}`;
             info += ` | Three.js: ${THREE.REVISION}`;
             
             if (message) {
@@ -646,6 +635,9 @@
             }
             if (animationId) {
                 cancelAnimationFrame(animationId);
+            }
+            if (videoReadyInterval) {
+                clearInterval(videoReadyInterval);
             }
         });
     </script>

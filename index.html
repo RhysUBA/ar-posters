@@ -40,6 +40,7 @@
             top: 0;
             left: 0;
             z-index: 10;
+            display: none; /* Ocultar inicialmente */
         }
         
         #ui-container {
@@ -183,13 +184,19 @@
             max-width: 300px;
             word-break: break-word;
         }
+        
+        .retry-btn {
+            background: rgba(231, 76, 60, 0.8);
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
     <div id="loading">
         <div class="spinner"></div>
-        <p>Inicializando cámara y AR...</p>
+        <p id="loading-text">Inicializando cámara y AR...</p>
         <p id="loading-status">Preparando el entorno</p>
+        <button id="retry-btn" class="btn retry-btn hidden">Reintentar</button>
     </div>
     
     <div id="container">
@@ -224,10 +231,21 @@
         let currentPoster = null;
         let videoStream = null;
         let animationId = null;
-        let loadingStatus = document.getElementById('loading-status');
-        let debugInfo = document.getElementById('debug-info');
         
-        // Base de datos simulada de afiches por código QR
+        // Referencias a elementos de UI
+        const loadingEl = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const loadingStatus = document.getElementById('loading-status');
+        const retryBtn = document.getElementById('retry-btn');
+        const startBtn = document.getElementById('start-btn');
+        const statusEl = document.getElementById('status');
+        const debugInfo = document.getElementById('debug-info');
+        const posterInfoEl = document.getElementById('poster-info');
+        const posterTitle = document.getElementById('poster-title');
+        const posterDesc = document.getElementById('poster-desc');
+        const posterDetails = document.getElementById('poster-details');
+        
+        // Base de datos de afiches por código QR
         const postersDB = {
             "evento-arte": {
                 title: "Exposición de Arte Contemporáneo",
@@ -255,19 +273,31 @@
             }
         };
         
-        // Elementos DOM
-        const startBtn = document.getElementById('start-btn');
-        const statusEl = document.getElementById('status');
-        const loadingEl = document.getElementById('loading');
-        const posterInfoEl = document.getElementById('poster-info');
-        const posterTitle = document.getElementById('poster-title');
-        const posterDesc = document.getElementById('poster-desc');
-        const posterDetails = document.getElementById('poster-details');
-        
         // Función para mostrar información de depuración
         function showDebugInfo(message) {
             debugInfo.textContent = message;
             console.log(message);
+        }
+        
+        // Función para manejar errores de la cámara
+        function handleCameraError(error) {
+            console.error("Error al acceder a la cámara:", error);
+            loadingText.textContent = "Error de inicialización";
+            loadingStatus.textContent = "Error: " + error.message;
+            
+            // Mensajes específicos para diferentes errores
+            if (error.name === 'NotAllowedError') {
+                loadingStatus.textContent = "Permiso denegado para acceder a la cámara";
+            } else if (error.name === 'NotFoundError') {
+                loadingStatus.textContent = "No se encontró cámara trasera";
+            } else if (error.name === 'OverconstrainedError') {
+                loadingStatus.textContent = "Configuración no soportada por la cámara";
+            } else {
+                loadingStatus.textContent = "Error desconocido: " + error.message;
+            }
+            
+            retryBtn.classList.remove('hidden');
+            startBtn.disabled = false;
         }
         
         // Inicialización
@@ -276,14 +306,12 @@
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d');
             
-            showDebugInfo("DOM cargado. Configurando Three.js...");
-            loadingStatus.textContent = "Configurando entorno 3D...";
-            
-            // Configurar el canvas de Three.js
-            initThreeJS();
-            
             // Configurar eventos
             startBtn.addEventListener('click', startCamera);
+            retryBtn.addEventListener('click', startCamera);
+            
+            // Inicializar Three.js inmediatamente
+            initThreeJS();
         });
         
         // Inicializar Three.js
@@ -320,22 +348,30 @@
             } catch (error) {
                 showDebugInfo("Error en Three.js: " + error.message);
                 loadingStatus.textContent = "Error en la configuración 3D";
+                loadingText.textContent = "Error crítico en Three.js";
+                retryBtn.classList.remove('hidden');
             }
         }
         
         // Iniciar la cámara
         async function startCamera() {
-            statusEl.textContent = "Iniciando cámara...";
-            startBtn.disabled = true;
             loadingStatus.textContent = "Solicitando acceso a la cámara...";
+            startBtn.disabled = true;
+            retryBtn.classList.add('hidden');
+            statusEl.textContent = "Iniciando cámara...";
+            
+            // Detener cualquier transmisión existente
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
             
             try {
                 // Obtener acceso a la cámara trasera en móviles
                 videoStream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        width: { min: 640, ideal: 1280, max: 1920 },
+                        height: { min: 480, ideal: 720, max: 1080 }
                     },
                     audio: false
                 });
@@ -344,86 +380,53 @@
                 loadingStatus.textContent = "Configurando flujo de video...";
                 
                 video.srcObject = videoStream;
-                statusEl.textContent = "Cámara activada. Buscando códigos QR...";
-                startBtn.classList.add('hidden');
                 
                 // Esperar a que el video esté listo
-                video.onloadedmetadata = () => {
-                    showDebugInfo(`Dimensiones del video: ${video.videoWidth}x${video.videoHeight}`);
-                    loadingStatus.textContent = "Ajustando canvas...";
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = resolve;
                     
-                    try {
-                        // Ajustar el canvas al tamaño del video
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        
-                        // Ajustar la cámara de Three.js a la relación de aspecto del video
-                        camera.aspect = video.videoWidth / video.videoHeight;
-                        camera.updateProjectionMatrix();
-                        renderer.setSize(video.videoWidth, video.videoHeight);
-                        
-                        showDebugInfo("Canvas y cámara 3D ajustados");
-                        
-                        // Ocultar pantalla de carga después de un breve retraso
-                        setTimeout(() => {
-                            loadingEl.classList.add('hidden');
-                            showDebugInfo("Aplicación iniciada. Buscando QR...");
-                        }, 1000);
-                        
-                        // Iniciar bucle de detección y renderizado
-                        animationId = requestAnimationFrame(detectAndRender);
-                    } catch (error) {
-                        showDebugInfo("Error al ajustar canvas: " + error.message);
-                        loadingStatus.textContent = "Error en configuración de canvas";
-                    }
-                };
+                    // Timeout de respaldo en caso de que onloadedmetadata no se dispare
+                    setTimeout(resolve, 1000);
+                });
                 
-                // Manejar errores en la carga del video
-                video.onerror = (error) => {
-                    showDebugInfo("Error en video: " + JSON.stringify(error));
-                    loadingStatus.textContent = "Error en flujo de video";
-                };
+                setupCamera();
                 
-                // Manejar casos donde onloadedmetadata no se dispara
-                setTimeout(() => {
-                    if (video.videoWidth > 0 && video.videoHeight > 0) {
-                        showDebugInfo("Usando timeout para ajustar canvas");
-                        // Ajustar el canvas al tamaño del video
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        
-                        // Ajustar la cámara de Three.js
-                        camera.aspect = video.videoWidth / video.videoHeight;
-                        camera.updateProjectionMatrix();
-                        renderer.setSize(video.videoWidth, video.videoHeight);
-                        
-                        loadingEl.classList.add('hidden');
-                        animationId = requestAnimationFrame(detectAndRender);
-                    } else {
-                        showDebugInfo("Video no tiene dimensiones después de 3 segundos");
-                        loadingStatus.textContent = "Error: Video no cargado";
-                        statusEl.textContent = "Error: No se pudo iniciar la cámara";
-                    }
-                }, 3000);
             } catch (error) {
-                console.error("Error al acceder a la cámara:", error);
-                statusEl.textContent = "Error: " + error.message;
-                loadingStatus.textContent = "Error: " + error.message;
-                startBtn.disabled = false;
+                handleCameraError(error);
+            }
+        }
+        
+        // Configurar la cámara después de que esté lista
+        function setupCamera() {
+            try {
+                // Mostrar dimensiones del video
+                showDebugInfo(`Dimensiones del video: ${video.videoWidth}x${video.videoHeight}`);
+                loadingStatus.textContent = "Ajustando canvas...";
                 
-                // Mostrar mensaje específico para errores de permiso
-                if (error.name === 'NotAllowedError') {
-                    statusEl.textContent = "Error: Permiso denegado para acceder a la cámara";
-                    loadingStatus.textContent = "Por favor, permita el acceso a la cámara";
-                } else if (error.name === 'NotFoundError') {
-                    statusEl.textContent = "Error: No se encontró cámara trasera";
-                    loadingStatus.textContent = "Este dispositivo no tiene cámara trasera";
-                } else if (error.name === 'OverconstrainedError') {
-                    statusEl.textContent = "Error: Configuración no soportada";
-                    loadingStatus.textContent = "La cámara no soporta la configuración solicitada";
-                }
+                // Ajustar el canvas al tamaño del video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
                 
-                showDebugInfo("Error en getUserMedia: " + error.name + " - " + error.message);
+                // Ajustar la cámara de Three.js a la relación de aspecto del video
+                camera.aspect = video.videoWidth / video.videoHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(video.videoWidth, video.videoHeight);
+                
+                showDebugInfo("Canvas y cámara 3D ajustados");
+                
+                // Ocultar pantalla de carga
+                loadingEl.classList.add('hidden');
+                canvas.style.display = 'block'; // Mostrar el canvas
+                showDebugInfo("Aplicación iniciada. Buscando QR...");
+                
+                // Iniciar bucle de detección y renderizado
+                animationId = requestAnimationFrame(detectAndRender);
+                
+            } catch (error) {
+                showDebugInfo("Error en setupCamera: " + error.message);
+                loadingStatus.textContent = "Error en configuración de canvas";
+                loadingText.textContent = "Error de configuración";
+                retryBtn.classList.remove('hidden');
             }
         }
         

@@ -19,20 +19,78 @@
             color: white;
             height: 100vh;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
         }
         
         #container {
             position: relative;
             width: 100%;
             height: 100%;
-            max-width: 100%;
-            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #loading-section {
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            text-align: center;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+        
+        .loading-content {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .spinner-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #4db8ff;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            font-size: 24px;
+            margin: 15px 0;
+            color: #4db8ff;
+        }
+        
+        .loading-status {
+            font-size: 18px;
+            margin-bottom: 25px;
+            color: #e0e0e0;
+        }
+        
+        #compatibility-result {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .success-panel {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid rgba(46, 204, 113, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        #main-content {
+            flex-grow: 1;
+            position: relative;
             overflow: hidden;
+            display: none;
         }
         
         #video-container {
@@ -122,35 +180,6 @@
             display: none;
         }
         
-        #loading {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            transition: opacity 0.5s;
-        }
-        
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 6px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #4db8ff;
-            animation: spin 1s linear infinite;
-            margin-bottom: 25px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
         #qr-overlay {
             position: absolute;
             top: 50%;
@@ -231,38 +260,9 @@
             position: relative;
         }
         
-        .loading-text {
-            font-size: 22px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        
-        .loading-status {
-            font-size: 18px;
-            margin-bottom: 20px;
-            text-align: center;
-            color: #4db8ff;
-        }
-        
-        #compatibility-result {
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
-            max-width: 90%;
-            text-align: center;
-        }
-        
         .error-panel {
             background: rgba(231, 76, 60, 0.2);
             border: 1px solid rgba(231, 76, 60, 0.5);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
-        }
-        
-        .success-panel {
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid rgba(46, 204, 113, 0.5);
             border-radius: 10px;
             padding: 15px;
             margin: 15px 0;
@@ -281,26 +281,50 @@
             background: linear-gradient(to right, #3498db, #2980b9);
             margin-top: 15px;
         }
+        
+        .init-complete {
+            background: rgba(46, 204, 113, 0.15);
+            border: 1px solid rgba(46, 204, 113, 0.4);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
-    <div id="loading">
-        <div class="spinner"></div>
-        <div class="loading-text">Inicializando Realidad Aumentada</div>
-        <div id="loading-status" class="loading-status">Comprobando compatibilidad...</div>
-        <div id="compatibility-result"></div>
-        <button id="retry-btn" class="btn btn-retry hidden">Reintentar</button>
-        <button id="alternative-btn" class="btn btn-alternative hidden">Modo Alternativo</button>
-        <div id="permission-request" class="hidden">
-            <div class="permission-request">
-                <p>Para usar esta aplicación, necesitamos acceso a tu cámara.</p>
-                <p>Por favor, haz clic en el botón para otorgar permisos:</p>
-                <button id="enable-camera-btn" class="btn permission-btn">Activar Cámara</button>
+    <!-- Sección de inicialización (no bloqueante) -->
+    <div id="loading-section">
+        <div class="loading-content">
+            <div class="loading-text">Inicializando Realidad Aumentada</div>
+            
+            <div class="spinner-container">
+                <div class="spinner"></div>
             </div>
+            
+            <div id="loading-status" class="loading-status">Comprobando compatibilidad...</div>
+            
+            <div id="compatibility-result"></div>
+            
+            <div id="permission-request" class="hidden">
+                <div class="permission-request">
+                    <p>Para usar esta aplicación, necesitamos acceso a tu cámara.</p>
+                    <p>Por favor, haz clic en el botón para otorgar permisos:</p>
+                    <button id="enable-camera-btn" class="btn permission-btn">Activar Cámara</button>
+                </div>
+            </div>
+            
+            <div id="init-complete" class="init-complete hidden">
+                <p>✅ Inicialización completada con éxito</p>
+                <p>Ahora puedes iniciar la cámara cuando estés listo</p>
+            </div>
+            
+            <button id="retry-btn" class="btn btn-retry hidden">Reintentar Inicialización</button>
+            <button id="alternative-btn" class="btn btn-alternative hidden">Modo Alternativo</button>
         </div>
     </div>
     
-    <div id="container">
+    <!-- Contenido principal (se mostrará después de la inicialización) -->
+    <div id="main-content">
         <div id="video-container">
             <video id="video" playsinline autoplay muted></video>
             <div id="qr-overlay"></div>
@@ -337,8 +361,8 @@
         let permissionRequested = false;
         
         // Referencias a elementos de UI
-        const loadingEl = document.getElementById('loading');
-        const loadingText = document.getElementById('loading-text');
+        const loadingSection = document.getElementById('loading-section');
+        const mainContent = document.getElementById('main-content');
         const loadingStatus = document.getElementById('loading-status');
         const retryBtn = document.getElementById('retry-btn');
         const alternativeBtn = document.getElementById('alternative-btn');
@@ -352,6 +376,7 @@
         const compatibilityResult = document.getElementById('compatibility-result');
         const permissionRequest = document.getElementById('permission-request');
         const enableCameraBtn = document.getElementById('enable-camera-btn');
+        const initComplete = document.getElementById('init-complete');
         
         // Base de datos de afiches
         const postersDB = {
@@ -469,7 +494,7 @@
                 scene.add(directionalLight);
                 
                 showDebugInfo("Three.js inicializado correctamente");
-                loadingStatus.textContent = "Three.js listo. Esperando cámara...";
+                loadingStatus.textContent = "Three.js listo. Puedes iniciar la cámara";
                 return true;
                 
             } catch (error) {
@@ -498,6 +523,10 @@
                 return;
             }
             
+            // Si todo está bien, mostrar mensaje de inicialización completa
+            initComplete.classList.remove('hidden');
+            loadingStatus.textContent = "Inicialización completada";
+            
             // Configurar eventos
             startBtn.addEventListener('click', requestCameraAccess);
             retryBtn.addEventListener('click', () => {
@@ -508,12 +537,13 @@
             
             alternativeBtn.addEventListener('click', () => {
                 showSuccess("Modo alternativo activado - Sin realidad aumentada");
-                loadingEl.classList.add('hidden');
                 startBtn.disabled = false;
             });
             
             showDebugInfo("Esperando inicio de cámara...");
-            loadingStatus.textContent = "Preparado. Pulse 'Iniciar Cámara'";
+            
+            // Mostrar el contenido principal
+            mainContent.style.display = 'block';
         });
         
         // Solicitar acceso a la cámara
@@ -641,14 +671,11 @@
                     showDebugInfo("Propiedades de cámara actualizadas");
                 }
                 
-                // Ocultar pantalla de carga
-                loadingEl.style.opacity = '0';
-                setTimeout(() => {
-                    loadingEl.classList.add('hidden');
-                }, 500);
-                
                 showDebugInfo("Aplicación iniciada. Buscando QR...");
                 statusEl.textContent = "Cámara activada. Buscando códigos QR...";
+                
+                // Ocultar sección de inicialización
+                loadingSection.style.display = 'none';
                 
                 // Iniciar bucle de detección
                 startDetectionLoop();

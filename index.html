@@ -32,14 +32,24 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Espejo para efecto espejo */
+            transform: scaleX(-1);
         }
         
-        #canvas {
+        #webgl-canvas {
             position: absolute;
             top: 0;
             left: 0;
             z-index: 10;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #qr-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            pointer-events: none;
         }
         
         #ui-container {
@@ -189,6 +199,40 @@
         .error {
             color: #e74c3c;
         }
+        
+        .error-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .error-content {
+            background: rgba(231, 76, 60, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+        }
+        
+        .error-content h2 {
+            margin-top: 0;
+        }
+        
+        .error-content ul {
+            text-align: left;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -202,7 +246,8 @@
             <video id="video" playsinline autoplay muted></video>
             <div id="qr-overlay"></div>
         </div>
-        <canvas id="canvas"></canvas>
+        <canvas id="webgl-canvas"></canvas>
+        <canvas id="qr-canvas"></canvas>
         
         <div id="instructions">
             <h2>Proyector AR de Afiches</h2>
@@ -225,7 +270,7 @@
 
     <script>
         // Variables globales
-        let video, canvas, ctx, renderer, scene, camera, posterMesh;
+        let video, qrCanvas, qrCtx, webglCanvas, renderer, scene, camera, posterMesh;
         let currentPoster = null;
         let videoStream = null;
         let animationId = null;
@@ -272,8 +317,9 @@
         // Inicialización
         document.addEventListener('DOMContentLoaded', async () => {
             video = document.getElementById('video');
-            canvas = document.getElementById('canvas');
-            ctx = canvas.getContext('2d');
+            qrCanvas = document.getElementById('qr-canvas');
+            qrCtx = qrCanvas.getContext('2d');
+            webglCanvas = document.getElementById('webgl-canvas');
             
             // Verificar compatibilidad con WebGL
             if (!isWebGLAvailable()) {
@@ -282,7 +328,9 @@
             }
             
             // Configurar el canvas de Three.js
-            initThreeJS();
+            if (!initThreeJS()) {
+                return;
+            }
             
             // Configurar eventos
             startBtn.addEventListener('click', startCamera);
@@ -312,12 +360,19 @@
             try {
                 // Configurar renderizador
                 renderer = new THREE.WebGLRenderer({
-                    canvas: canvas,
+                    canvas: webglCanvas,
                     alpha: true,
-                    antialias: true
+                    antialias: true,
+                    preserveDrawingBuffer: true
                 });
+                
+                if (!renderer) {
+                    throw new Error("No se pudo crear el contexto WebGL");
+                }
+                
                 renderer.setPixelRatio(window.devicePixelRatio);
                 renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setClearColor(0x000000, 0); // Transparente
                 
                 // Crear escena
                 scene = new THREE.Scene();
@@ -338,8 +393,10 @@
                 
                 // Actualizar información de depuración
                 updateDebugInfo("WebGL inicializado correctamente", true);
+                return true;
             } catch (error) {
                 showError("Error al inicializar WebGL: " + error.message);
+                return false;
             }
         }
         
@@ -367,14 +424,9 @@
                 // Esperar a que el video esté listo
                 await new Promise((resolve) => {
                     video.onloadedmetadata = () => {
-                        // Ajustar el canvas al tamaño del video
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        
-                        // Ajustar la cámara de Three.js a la relación de aspecto del video
-                        camera.aspect = video.videoWidth / video.videoHeight;
-                        camera.updateProjectionMatrix();
-                        renderer.setSize(video.videoWidth, video.videoHeight);
+                        // Ajustar canvas QR al tamaño del video
+                        qrCanvas.width = video.videoWidth;
+                        qrCanvas.height = video.videoHeight;
                         
                         // Ocultar pantalla de carga
                         loadingEl.classList.add('hidden');
@@ -428,11 +480,11 @@
         // Bucle principal de detección y renderizado
         function detectAndRender() {
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Dibujar el frame actual en el canvas 2D
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                // Dibujar el frame actual en el canvas QR
+                qrCtx.drawImage(video, 0, 0, qrCanvas.width, qrCanvas.height);
                 
                 // Obtener datos de imagen para detección QR
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const imageData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
                 const code = jsQR(imageData.data, imageData.width, imageData.height);
                 
                 // Procesar código QR detectado
@@ -444,27 +496,11 @@
                 }
                 
                 // Actualizar información de depuración
-                updateDebugInfo(`Estado: ${code ? 'QR detectado' : 'Buscando QR'} | FPS: ${Math.round(getFPS())}`);
+                updateDebugInfo(`Estado: ${code ? 'QR detectado' : 'Buscando QR'}`);
             }
             
             // Continuar el bucle
             animationId = requestAnimationFrame(detectAndRender);
-        }
-        
-        // Calcular FPS
-        let lastCalledTime;
-        let fps = 0;
-        
-        function getFPS() {
-            if (!lastCalledTime) {
-                lastCalledTime = performance.now();
-                return 0;
-            }
-            
-            const delta = (performance.now() - lastCalledTime) / 1000;
-            lastCalledTime = performance.now();
-            fps = 1 / delta;
-            return fps;
         }
         
         // Manejar detección de código QR
@@ -561,23 +597,25 @@
         
         // Mostrar mensaje de error
         function showError(message) {
-            const errorEl = document.createElement('div');
-            errorEl.className = 'error-message';
-            errorEl.innerHTML = `
-                <div style="background: rgba(231, 76, 60, 0.8); padding: 20px; border-radius: 10px; text-align: center; max-width: 80%; margin: auto;">
-                    <h3>Error</h3>
-                    <p>${message}</p>
-                    <button onclick="location.reload()" class="btn" style="margin-top: 10px;">Reintentar</button>
+            const errorHtml = `
+                <div class="error-overlay">
+                    <div class="error-content">
+                        <h2>Error en la aplicación</h2>
+                        <p>${message}</p>
+                        <p>Posibles soluciones:</p>
+                        <ul>
+                            <li>Asegúrate de usar un navegador compatible (Chrome, Firefox, Edge)</li>
+                            <li>Actualiza tu navegador a la última versión</li>
+                            <li>Verifica que tu dispositivo tenga aceleración gráfica habilitada</li>
+                            <li>Prueba reiniciando tu dispositivo</li>
+                            <li>Permite el acceso a la cámara si te lo solicita</li>
+                        </ul>
+                        <button onclick="location.reload()" class="btn">Reintentar</button>
+                    </div>
                 </div>
             `;
-            errorEl.style.position = 'absolute';
-            errorEl.style.top = '50%';
-            errorEl.style.left = '0';
-            errorEl.style.width = '100%';
-            errorEl.style.transform = 'translateY(-50%)';
-            errorEl.style.zIndex = '200';
             
-            document.getElementById('container').appendChild(errorEl);
+            document.body.insertAdjacentHTML('beforeend', errorHtml);
             loadingEl.classList.add('hidden');
         }
         

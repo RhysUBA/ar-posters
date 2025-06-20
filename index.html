@@ -378,7 +378,7 @@
         let detectionFps = 0;
         let lastDetectionTime = 0;
         
-        // Base de datos simulada de afiches por código QR
+        // Base de datos de afiches por código QR
         const postersDB = {
             "evento-arte": {
                 title: "Exposición de Arte Contemporáneo",
@@ -458,19 +458,27 @@
                 // Crear escena
                 scene = new THREE.Scene();
                 
-                // Crear cámara
+                // Crear cámara - SOLUCIÓN CLAVE: Posición correcta
                 camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-                camera.position.set(0, 0, 0);
+                camera.position.set(0, 0, 5); // Posición inicial mejorada
                 scene.add(camera);
+                
+                // Asegurarse que la cámara mira al origen
+                camera.lookAt(0, 0, 0);
                 
                 // Añadir luz ambiental
                 const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
                 scene.add(ambientLight);
                 
-                // Añadir luz direccional
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-                directionalLight.position.set(1, 1, 1);
+                // Añadir luz direccional - SOLUCIÓN CLAVE: Mejor iluminación
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+                directionalLight.position.set(5, 5, 5);
                 scene.add(directionalLight);
+                
+                // Luz adicional para mejor visualización
+                const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+                backLight.position.set(-5, -5, -5);
+                scene.add(backLight);
                 
                 updateDebugInfo("WebGL inicializado correctamente", true);
             } catch (error) {
@@ -617,19 +625,29 @@
                 } else {
                     detectionStatus.textContent = "Buscando códigos QR...";
                     detectionStatus.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                    
-                    if (currentPoster) {
-                        // Si no se detecta QR pero hay un póster mostrado, mantenerlo
-                        renderer.render(scene, camera);
-                    }
                 }
                 
                 // Actualizar información de depuración
                 updateDebugInfo(`Resolución: ${qrCanvas.width}x${qrCanvas.height} | Tiempo detección: ${detectionTime.toFixed(1)}ms`);
             }
             
+            // Renderizar la escena 3D en cada frame - SOLUCIÓN CLAVE
+            renderScene();
+            
             // Continuar el bucle
             animationId = requestAnimationFrame(detectAndRender);
+        }
+        
+        // Renderizar la escena 3D
+        function renderScene() {
+            if (posterMesh) {
+                // Animar el afiche
+                posterMesh.rotation.y += 0.005;
+                posterMesh.position.y = Math.sin(Date.now() * 0.002) * 0.2;
+            }
+            
+            // Renderizar la escena
+            renderer.render(scene, camera);
         }
         
         // Manejar detección de código QR
@@ -651,7 +669,7 @@
             }
         }
         
-        // Crear un afiche en 3D
+        // Crear un afiche en 3D - SOLUCIÓN CLAVE
         function createPoster(poster) {
             // Eliminar afiche anterior si existe
             if (posterMesh) {
@@ -659,46 +677,37 @@
             }
             
             // Crear geometría (plano para el afiche)
-            const geometry = new THREE.PlaneGeometry(2, 3);
+            const geometry = new THREE.PlaneGeometry(3, 4); // Tamaño más grande
             
             // Crear material con color del póster
             const material = new THREE.MeshPhongMaterial({
                 color: poster.color,
                 side: THREE.DoubleSide,
                 emissive: poster.color,
-                emissiveIntensity: 0.2,
+                emissiveIntensity: 0.3,
                 specular: 0xffffff,
-                shininess: 30
+                shininess: 50,
+                wireframe: false
             });
             
             // Crear malla
             posterMesh = new THREE.Mesh(geometry, material);
             
-            // Posicionar frente a la cámara
-            posterMesh.position.set(0, 0, -5);
+            // Posicionar frente a la cámara - SOLUCIÓN CLAVE: Posición correcta
+            posterMesh.position.set(0, 0, -8); // Más lejos para que quepa completo
+            posterMesh.rotation.x = -0.2; // Inclinación para mejor perspectiva
             
             // Añadir a la escena
             scene.add(posterMesh);
             
-            // Iniciar animación
-            animatePoster();
-        }
-        
-        // Animar el afiche
-        function animatePoster() {
-            if (!posterMesh) return;
+            // Añadir borde al afiche para mejor visibilidad
+            const edges = new THREE.EdgesGeometry(geometry);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+            const wireframe = new THREE.LineSegments(edges, lineMaterial);
+            posterMesh.add(wireframe);
             
-            // Rotación suave
-            posterMesh.rotation.y += 0.005;
-            
-            // Efecto de flotación
-            posterMesh.position.y = Math.sin(Date.now() * 0.002) * 0.2;
-            
-            // Renderizar
+            // Renderizar inmediatamente
             renderer.render(scene, camera);
-            
-            // Continuar animación
-            requestAnimationFrame(animatePoster);
         }
         
         // Actualizar información de depuración
@@ -753,6 +762,7 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
+                renderer.render(scene, camera);
             }
         });
         

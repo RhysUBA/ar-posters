@@ -152,6 +152,7 @@
             align-items: center;
             z-index: 100;
             flex-direction: column;
+            transition: opacity 0.5s ease;
         }
         
         .spinner {
@@ -321,16 +322,8 @@
             qrCtx = qrCanvas.getContext('2d');
             webglCanvas = document.getElementById('webgl-canvas');
             
-            // Verificar compatibilidad con WebGL
-            if (!isWebGLAvailable()) {
-                showError("WebGL no está disponible en tu navegador. Usa Chrome, Firefox o Edge.");
-                return;
-            }
-            
             // Configurar el canvas de Three.js
-            if (!initThreeJS()) {
-                return;
-            }
+            initThreeJS();
             
             // Configurar eventos
             startBtn.addEventListener('click', startCamera);
@@ -366,10 +359,6 @@
                     preserveDrawingBuffer: true
                 });
                 
-                if (!renderer) {
-                    throw new Error("No se pudo crear el contexto WebGL");
-                }
-                
                 renderer.setPixelRatio(window.devicePixelRatio);
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.setClearColor(0x000000, 0); // Transparente
@@ -391,12 +380,9 @@
                 directionalLight.position.set(1, 1, 1);
                 scene.add(directionalLight);
                 
-                // Actualizar información de depuración
                 updateDebugInfo("WebGL inicializado correctamente", true);
-                return true;
             } catch (error) {
                 showError("Error al inicializar WebGL: " + error.message);
-                return false;
             }
         }
         
@@ -421,32 +407,58 @@
                 statusEl.textContent = "Cámara activada. Buscando códigos QR...";
                 startBtn.classList.add('hidden');
                 
-                // Esperar a que el video esté listo
-                await new Promise((resolve) => {
-                    video.onloadedmetadata = () => {
-                        // Ajustar canvas QR al tamaño del video
-                        qrCanvas.width = video.videoWidth;
-                        qrCanvas.height = video.videoHeight;
-                        
-                        // Ocultar pantalla de carga
-                        loadingEl.classList.add('hidden');
-                        debugInfo.classList.remove('hidden');
-                        
-                        // Iniciar bucle de detección y renderizado
-                        animationId = requestAnimationFrame(detectAndRender);
-                        resolve();
-                    };
-                });
+                // SOLUCIÓN AL PROBLEMA PRINCIPAL:
+                // Usar un enfoque robusto para detectar cuando la cámara está lista
+                await waitForVideoReady();
                 
-                // Manejar errores de reproducción
-                video.onerror = () => {
-                    showError("Error al reproducir el video de la cámara");
-                };
+                // Ocultar pantalla de carga
+                hideLoadingScreen();
+                
+                // Iniciar bucle de detección y renderizado
+                animationId = requestAnimationFrame(detectAndRender);
                 
             } catch (error) {
                 console.error("Error al acceder a la cámara:", error);
                 handleCameraError(error);
             }
+        }
+        
+        // Función para esperar a que el video esté listo (SOLUCIÓN CLAVE)
+        function waitForVideoReady() {
+            return new Promise((resolve) => {
+                // Verificar si el video ya tiene dimensiones
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                    resolve();
+                    return;
+                }
+                
+                // Usar múltiples eventos para máxima compatibilidad
+                const onReady = () => {
+                    video.removeEventListener('loadedmetadata', onReady);
+                    video.removeEventListener('loadeddata', onReady);
+                    video.removeEventListener('canplay', onReady);
+                    resolve();
+                };
+                
+                video.addEventListener('loadedmetadata', onReady);
+                video.addEventListener('loadeddata', onReady);
+                video.addEventListener('canplay', onReady);
+                
+                // Timeout de seguridad
+                setTimeout(() => {
+                    console.warn("Advertencia: Los eventos de video no se activaron. Continuando de todos modos.");
+                    resolve();
+                }, 3000);
+            });
+        }
+        
+        // Ocultar la pantalla de carga con animación
+        function hideLoadingScreen() {
+            loadingEl.style.opacity = '0';
+            setTimeout(() => {
+                loadingEl.classList.add('hidden');
+                debugInfo.classList.remove('hidden');
+            }, 500);
         }
         
         // Manejar errores de la cámara
@@ -472,8 +484,7 @@
             
             statusEl.textContent = errorMsg;
             startBtn.disabled = false;
-            loadingEl.classList.add('hidden');
-            debugInfo.classList.remove('hidden');
+            hideLoadingScreen();
             updateDebugInfo(errorMsg, false);
         }
         

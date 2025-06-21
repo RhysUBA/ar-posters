@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Proyector AR de Afiches con QR</title>
+    <title>Proyector AR de Afiches</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
@@ -14,83 +14,20 @@
         }
         
         body {
+            overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #1a1a2e, #16213e);
             color: white;
             height: 100vh;
-            overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
         
         #container {
             position: relative;
             width: 100%;
             height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        #loading-section {
-            background: rgba(0, 0, 0, 0.85);
-            padding: 20px;
-            text-align: center;
-            z-index: 100;
-            flex-shrink: 0;
-        }
-        
-        .loading-content {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .spinner-container {
-            display: flex;
-            justify-content: center;
-            margin: 20px 0;
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #4db8ff;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .loading-text {
-            font-size: 24px;
-            margin: 15px 0;
-            color: #4db8ff;
-        }
-        
-        .loading-status {
-            font-size: 18px;
-            margin-bottom: 25px;
-            color: #e0e0e0;
-        }
-        
-        #compatibility-result {
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
-        }
-        
-        .success-panel {
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid rgba(46, 204, 113, 0.5);
-            border-radius: 10px;
-            padding: 15px;
-        }
-        
-        #main-content {
-            flex-grow: 1;
-            position: relative;
-            overflow: hidden;
-            display: none;
+            flex: 1;
         }
         
         #video-container {
@@ -98,8 +35,6 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            z-index: 1;
-            background: #000;
         }
         
         #video {
@@ -109,36 +44,91 @@
             transform: scaleX(-1);
         }
         
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+        }
+        
         #qr-canvas {
             position: absolute;
             top: 0;
             left: 0;
-            z-index: 2;
-            width: 100%;
-            height: 100%;
+            z-index: 5;
+            opacity: 0;
+            pointer-events: none;
         }
         
-        #threejs-canvas {
+        #ui-container {
             position: absolute;
-            top: 0;
+            bottom: 20px;
             left: 0;
-            z-index: 3;
             width: 100%;
-            height: 100%;
+            text-align: center;
+            z-index: 20;
+            padding: 15px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #0096ff, #0066cc);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 14px 35px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px;
+            box-shadow: 0 4px 15px rgba(0, 102, 204, 0.3);
+            transition: all 0.3s ease;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 102, 204, 0.4);
+        }
+        
+        #status {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 25px;
+            border-radius: 30px;
+            margin-top: 10px;
+            display: inline-block;
+            backdrop-filter: blur(5px);
+            max-width: 90%;
+            font-size: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         
         #instructions {
             position: absolute;
-            top: 20px;
+            top: 0;
             left: 0;
             width: 100%;
-            padding: 15px 20px;
-            box-sizing: border-box;
+            padding: 25px 20px;
             text-align: center;
             background: rgba(0, 0, 0, 0.7);
             z-index: 30;
             backdrop-filter: blur(5px);
-            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(77, 184, 255, 0.3);
+        }
+        
+        #instructions h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: #4db8ff;
+            text-shadow: 0 0 10px rgba(77, 184, 255, 0.5);
+        }
+        
+        #instructions p {
+            font-size: 1.1em;
+            max-width: 500px;
+            margin: 0 auto;
+            color: #e0e0ff;
         }
         
         .poster-info {
@@ -147,9 +137,8 @@
             left: 0;
             width: 100%;
             text-align: center;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
             backdrop-filter: blur(10px);
             border-radius: 15px;
             max-width: 90%;
@@ -158,6 +147,8 @@
             right: 0;
             animation: fadeIn 0.5s ease;
             z-index: 25;
+            border: 1px solid rgba(77, 184, 255, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
         
         @keyframes fadeIn {
@@ -166,18 +157,49 @@
         }
         
         .poster-info h3 {
-            margin: 0 0 10px 0;
+            margin: 0 0 15px 0;
             color: #4db8ff;
-            font-size: 1.3rem;
+            font-size: 1.6em;
+            font-weight: 600;
         }
         
         .poster-info p {
-            margin: 5px 0;
-            font-size: 1rem;
+            margin: 10px 0;
+            font-size: 1.2em;
+            line-height: 1.5;
         }
         
         .hidden {
             display: none;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            flex-direction: column;
+            transition: opacity 0.5s ease;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: #4db8ff;
+            animation: spin 1.5s linear infinite;
+            margin-bottom: 25px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         
         #qr-overlay {
@@ -185,185 +207,143 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 250px;
-            height: 250px;
-            border: 3px dashed #4db8ff;
-            border-radius: 10px;
+            width: 280px;
+            height: 280px;
+            border: 3px solid #4db8ff;
+            border-radius: 15px;
             z-index: 15;
             pointer-events: none;
+            box-shadow: 0 0 0 10000px rgba(0, 0, 0, 0.5);
+            animation: pulse 2s infinite;
         }
         
-        #debug-info {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 14px;
-            z-index: 40;
-            max-width: 90%;
-            word-break: break-word;
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(77, 184, 255, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(77, 184, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(77, 184, 255, 0); }
         }
         
-        #control-panel {
+        .error-overlay {
             position: absolute;
-            bottom: 20px;
+            top: 0;
             left: 0;
             width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
             text-align: center;
-            z-index: 20;
-            padding: 15px;
-            box-sizing: border-box;
+            padding: 20px;
         }
         
-        .btn {
-            background: linear-gradient(to right, #3498db, #2980b9);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            padding: 14px 35px;
-            font-size: 18px;
-            cursor: pointer;
-            margin: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-            font-weight: 600;
-            min-width: 200px;
-            z-index: 50;
-            position: relative;
+        .error-content {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
         
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+        .error-content h2 {
+            margin-top: 0;
+            margin-bottom: 25px;
+            font-size: 1.8em;
         }
         
-        .btn-retry {
-            background: linear-gradient(to right, #2ecc71, #27ae60);
+        .error-content ul {
+            text-align: left;
+            margin: 25px 0;
+            padding-left: 25px;
         }
         
-        .btn-alternative {
-            background: linear-gradient(to right, #9b59b6, #8e44ad);
+        .error-content li {
+            margin-bottom: 12px;
+            font-size: 1.1em;
+            line-height: 1.6;
         }
         
-        #status {
-            background: rgba(0, 0, 0, 0.7);
-            padding: 12px 25px;
-            border-radius: 30px;
-            margin-top: 15px;
-            display: inline-block;
-            backdrop-filter: blur(5px);
-            font-size: 16px;
-            max-width: 90%;
-            z-index: 50;
-            position: relative;
+        .loading-fadeout {
+            animation: fadeOut 0.5s forwards;
         }
         
-        .error-panel {
-            background: rgba(231, 76, 60, 0.2);
-            border: 1px solid rgba(231, 76, 60, 0.5);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
+        @keyframes fadeOut {
+            to { opacity: 0; }
         }
         
-        .permission-request {
-            background: rgba(52, 152, 219, 0.2);
-            border: 1px solid rgba(52, 152, 219, 0.5);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
-            max-width: 90%;
-        }
-        
-        .permission-btn {
-            background: linear-gradient(to right, #3498db, #2980b9);
-            margin-top: 15px;
-        }
-        
-        .init-complete {
-            background: rgba(46, 204, 113, 0.15);
-            border: 1px solid rgba(46, 204, 113, 0.4);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-        }
-        
-        /* Nuevo estilo para el logo de la universidad */
-        #university-logo {
+        .qr-guide {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 100px;
-            height: auto;
-            z-index: 50;
-            opacity: 0.9;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            background: rgba(255, 255, 255, 0.2);
-            padding: 5px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 15;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 12px;
+            max-width: 80%;
             backdrop-filter: blur(5px);
-            transition: transform 0.3s ease, opacity 0.3s ease;
+            border: 1px solid rgba(77, 184, 255, 0.3);
         }
         
-        #university-logo:hover {
-            transform: scale(1.05);
-            opacity: 1;
+        .qr-guide h3 {
+            margin-bottom: 12px;
+            color: #4db8ff;
+            font-size: 1.4em;
         }
         
-        .logo-hidden {
-            display: none;
+        .qr-guide p {
+            font-size: 1.1em;
+            color: #e0e0ff;
+        }
+        
+        #qr-scan-animation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 5px;
+            background: #4db8ff;
+            border-radius: 3px;
+            animation: scan 2s infinite;
+            z-index: 16;
+            box-shadow: 0 0 15px rgba(77, 184, 255, 0.8);
+        }
+        
+        @keyframes scan {
+            0% { top: calc(50% - 140px); }
+            50% { top: calc(50% + 140px); }
+            100% { top: calc(50% - 140px); }
         }
     </style>
 </head>
 <body>
-    <!-- Sección de inicialización (no bloqueante) -->
-    <div id="loading-section">
-        <div class="loading-content">
-            <div class="loading-text">Inicializando Realidad Aumentada</div>
-            
-            <div class="spinner-container">
-                <div class="spinner"></div>
-            </div>
-            
-            <div id="loading-status" class="loading-status">Comprobando compatibilidad...</div>
-            
-            <div id="compatibility-result"></div>
-            
-            <div id="permission-request" class="hidden">
-                <div class="permission-request">
-                    <p>Para usar esta aplicación, necesitamos acceso a tu cámara.</p>
-                    <p>Por favor, haz clic en el botón para otorgar permisos:</p>
-                    <button id="enable-camera-btn" class="btn permission-btn">Activar Cámara</button>
-                </div>
-            </div>
-            
-            <div id="init-complete" class="init-complete hidden">
-                <p>✅ Inicialización completada con éxito</p>
-                <p>Ahora puedes iniciar la cámara cuando estés listo</p>
-            </div>
-            
-            <button id="retry-btn" class="btn btn-retry hidden">Reintentar Inicialización</button>
-            <button id="alternative-btn" class="btn btn-alternative hidden">Modo Alternativo</button>
-        </div>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p id="loading-text">Inicializando Realidad Aumentada...</p>
     </div>
     
-    <!-- Contenido principal (se mostrará después de la inicialización) -->
-    <div id="main-content">
-        <!-- Logo de la universidad -->
-        <img id="university-logo" src="https://uba.edu.ve/wp-content/uploads/2022/12/uba-logo-blanco-azul.png" alt="Logo Universidad" class="logo-hidden">
-        
+    <div id="container">
         <div id="video-container">
             <video id="video" playsinline autoplay muted></video>
             <div id="qr-overlay"></div>
+            <div id="qr-scan-animation"></div>
+            <div class="qr-guide">
+                <h3>Enfoca un código QR</h3>
+                <p>Coloca el código dentro del área marcada</p>
+            </div>
         </div>
+        <canvas id="webgl-canvas"></canvas>
         <canvas id="qr-canvas"></canvas>
-        <canvas id="threejs-canvas"></canvas>
         
         <div id="instructions">
             <h2>Proyector AR de Afiches</h2>
-            <p>Enfoca un código QR para ver información en realidad aumentada</p>
+            <p>Descubre información en realidad aumentada escaneando códigos QR</p>
         </div>
         
         <div id="poster-info" class="poster-info hidden">
@@ -372,43 +352,21 @@
             <p id="poster-details">Detalles adicionales</p>
         </div>
         
-        <div id="control-panel">
-            <button id="start-btn" class="btn">Iniciar Cámara</button>
-            <div id="status">Esperando activación de la cámara...</div>
+        <div id="ui-container">
+            <button id="start-btn" class="btn">Iniciar Experiencia AR</button>
+            <div id="status">Preparado para escanear códigos QR</div>
         </div>
-        
-        <div id="debug-info">Estado: Inicializando...</div>
     </div>
 
     <script>
         // Variables globales
-        let video, qrCanvas, qrCtx, threeCanvas, renderer, scene, camera, posterMesh;
+        let video, qrCanvas, qrCtx, webglCanvas, renderer, scene, camera, posterMesh;
         let currentPoster = null;
         let videoStream = null;
         let animationId = null;
-        let cameraTimeout = null;
-        let permissionRequested = false;
+        let videoReadyInterval = null;
         
-        // Referencias a elementos de UI
-        const loadingSection = document.getElementById('loading-section');
-        const mainContent = document.getElementById('main-content');
-        const loadingStatus = document.getElementById('loading-status');
-        const retryBtn = document.getElementById('retry-btn');
-        const alternativeBtn = document.getElementById('alternative-btn');
-        const startBtn = document.getElementById('start-btn');
-        const statusEl = document.getElementById('status');
-        const debugInfo = document.getElementById('debug-info');
-        const posterInfoEl = document.getElementById('poster-info');
-        const posterTitle = document.getElementById('poster-title');
-        const posterDesc = document.getElementById('poster-desc');
-        const posterDetails = document.getElementById('poster-details');
-        const compatibilityResult = document.getElementById('compatibility-result');
-        const permissionRequest = document.getElementById('permission-request');
-        const enableCameraBtn = document.getElementById('enable-camera-btn');
-        const initComplete = document.getElementById('init-complete');
-        const universityLogo = document.getElementById('university-logo'); // Logo de la universidad
-        
-        // Base de datos de afiches
+        // Base de datos de afiches por código QR
         const postersDB = {
             "evento-arte": {
                 title: "Exposición de Arte Contemporáneo",
@@ -436,330 +394,217 @@
             }
         };
         
-        // Función para mostrar información de depuración
-        function showDebugInfo(message) {
-            debugInfo.textContent = message;
-            console.log(message);
-        }
+        // Elementos DOM
+        const startBtn = document.getElementById('start-btn');
+        const statusEl = document.getElementById('status');
+        const loadingEl = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const posterInfoEl = document.getElementById('poster-info');
+        const posterTitle = document.getElementById('poster-title');
+        const posterDesc = document.getElementById('poster-desc');
+        const posterDetails = document.getElementById('poster-details');
         
-        // Función para manejar errores
-        function showError(message) {
-            compatibilityResult.innerHTML = `
-                <div class="error-panel">
-                    <strong>❌ Error:</strong> ${message}
-                </div>
-            `;
-            retryBtn.classList.remove('hidden');
-            alternativeBtn.classList.remove('hidden');
-            loadingStatus.textContent = message;
-        }
-        
-        // Función para mostrar éxito
-        function showSuccess(message) {
-            compatibilityResult.innerHTML = `
-                <div class="success-panel">
-                    <strong>✅ Éxito:</strong> ${message}
-                </div>
-            `;
-            loadingStatus.textContent = message;
-        }
-        
-        // Verificar compatibilidad con WebGL
-        function checkWebGLSupport() {
-            try {
-                const canvas = document.createElement('canvas');
-                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                
-                if (gl && gl instanceof WebGLRenderingContext) {
-                    showDebugInfo("WebGL es compatible con este dispositivo");
-                    showSuccess("WebGL está disponible y funcionando");
-                    return true;
-                }
-                
-                showError("WebGL no está disponible en este dispositivo");
-                return false;
-            } catch (error) {
-                showError("Error al verificar WebGL: " + error.message);
-                return false;
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            video = document.getElementById('video');
+            qrCanvas = document.getElementById('qr-canvas');
+            qrCtx = qrCanvas.getContext('2d');
+            webglCanvas = document.getElementById('webgl-canvas');
+            
+            // Configurar Three.js
+            initThreeJS();
+            
+            // Configurar eventos
+            startBtn.addEventListener('click', startCamera);
+            
+            // Intentar iniciar automáticamente en dispositivos móviles
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                setTimeout(startCamera, 1000);
             }
-        }
+        });
         
-        // Inicialización de Three.js
+        // Inicializar Three.js
         function initThreeJS() {
             try {
-                // Usar el canvas específico para Three.js
-                threeCanvas = document.getElementById('threejs-canvas');
-                
-                // Crear el renderizador WebGL
+                // Configurar renderizador
                 renderer = new THREE.WebGLRenderer({
-                    canvas: threeCanvas,
+                    canvas: webglCanvas,
                     alpha: true,
-                    antialias: true,
-                    preserveDrawingBuffer: true
+                    antialias: true
                 });
                 
                 renderer.setPixelRatio(window.devicePixelRatio);
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.setClearColor(0x000000, 0);
                 
-                // Crear la escena
+                // Crear escena
                 scene = new THREE.Scene();
                 
-                // Crear la cámara
-                camera = new THREE.PerspectiveCamera(
-                    60, 
-                    window.innerWidth / window.innerHeight, 
-                    0.1, 
-                    1000
-                );
-                camera.position.set(0, 0, 0);
+                // Crear cámara
+                camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(0, 0, 5);
                 scene.add(camera);
+                camera.lookAt(0, 0, 0);
                 
-                // Añadir iluminación
+                // Añadir luz ambiental
                 const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
                 scene.add(ambientLight);
                 
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-                directionalLight.position.set(1, 1, 1);
+                // Añadir luz direccional
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+                directionalLight.position.set(5, 5, 5);
                 scene.add(directionalLight);
                 
-                showDebugInfo("Three.js inicializado correctamente");
-                loadingStatus.textContent = "Three.js listo. Puedes iniciar la cámara";
-                return true;
-                
+                // Luz adicional
+                const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+                backLight.position.set(-5, -5, -5);
+                scene.add(backLight);
             } catch (error) {
-                showError("Error al inicializar Three.js: " + error.message);
-                console.error("Three.js initialization error:", error);
-                return false;
+                showError("Error al inicializar WebGL: " + error.message);
             }
         }
         
-        // Inicialización de la página
-        document.addEventListener('DOMContentLoaded', () => {
-            showDebugInfo("DOM cargado. Iniciando comprobaciones...");
-            video = document.getElementById('video');
-            qrCanvas = document.getElementById('qr-canvas');
-            qrCtx = qrCanvas.getContext('2d');
-            
-            // 1. Verificar compatibilidad WebGL
-            if (!checkWebGLSupport()) {
-                loadingStatus.textContent = "WebGL no compatible";
-                return;
-            }
-            
-            // 2. Inicializar Three.js
-            if (!initThreeJS()) {
-                loadingStatus.textContent = "Error en Three.js";
-                return;
-            }
-            
-            // Si todo está bien, mostrar mensaje de inicialización completa
-            initComplete.classList.remove('hidden');
-            loadingStatus.textContent = "Inicialización completada";
-            
-            // Configurar eventos
-            startBtn.addEventListener('click', requestCameraAccess);
-            retryBtn.addEventListener('click', () => {
-                location.reload();
-            });
-            
-            enableCameraBtn.addEventListener('click', requestCameraAccess);
-            
-            alternativeBtn.addEventListener('click', () => {
-                showSuccess("Modo alternativo activado - Sin realidad aumentada");
-                startBtn.disabled = false;
-            });
-            
-            showDebugInfo("Esperando inicio de cámara...");
-            
-            // Mostrar el contenido principal
-            mainContent.style.display = 'block';
-        });
-        
-        // Solicitar acceso a la cámara
-        async function requestCameraAccess() {
-            if (permissionRequested) return;
-            
-            permissionRequested = true;
-            loadingStatus.textContent = "Solicitando acceso a la cámara...";
-            startBtn.disabled = true;
-            retryBtn.classList.add('hidden');
-            alternativeBtn.classList.add('hidden');
+        // Iniciar la cámara
+        async function startCamera() {
             statusEl.textContent = "Iniciando cámara...";
-            
-            // Mostrar solicitud de permisos explícita
-            permissionRequest.classList.remove('hidden');
+            startBtn.disabled = true;
+            loadingText.textContent = "Activando cámara...";
             
             try {
-                // Detener cualquier transmisión existente
-                if (videoStream) {
-                    videoStream.getTracks().forEach(track => track.stop());
-                }
-                
-                // Obtener acceso a la cámara trasera
+                // Obtener acceso a la cámara trasera en móviles
                 videoStream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'environment',
-                        width: { min: 640, ideal: 1280, max: 1920 },
-                        height: { min: 480, ideal: 720, max: 1080 }
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
                     },
                     audio: false
                 });
                 
-                showDebugInfo("Acceso a cámara concedido");
-                loadingStatus.textContent = "Configurando flujo de video...";
-                permissionRequest.classList.add('hidden');
-                
                 video.srcObject = videoStream;
+                statusEl.textContent = "Escanea un código QR";
+                startBtn.classList.add('hidden');
                 
-                // Solución definitiva para evento loadedmetadata
-                let metadataLoaded = false;
-                
-                // Opción 1: Usar evento loadedmetadata
-                video.addEventListener('loadedmetadata', () => {
-                    if (!metadataLoaded) {
-                        metadataLoaded = true;
-                        clearTimeout(cameraTimeout);
-                        setupCamera();
-                    }
-                }, { once: true });
-                
-                // Opción 2: Usar evento loadeddata como respaldo
-                video.addEventListener('loadeddata', () => {
-                    if (!metadataLoaded) {
-                        metadataLoaded = true;
-                        clearTimeout(cameraTimeout);
-                        setupCamera();
-                    }
-                }, { once: true });
-                
-                // Opción 3: Usar evento canplay como segundo respaldo
-                video.addEventListener('canplay', () => {
-                    if (!metadataLoaded) {
-                        metadataLoaded = true;
-                        clearTimeout(cameraTimeout);
-                        setupCamera();
-                    }
-                }, { once: true });
-                
-                // Timeout de respaldo para casos donde los eventos no se disparan
-                cameraTimeout = setTimeout(() => {
-                    if (!metadataLoaded) {
-                        showDebugInfo("Timeout: Configurando con valores predeterminados");
-                        metadataLoaded = true;
-                        setupCamera();
-                    }
-                }, 3000);
+                // Verificar cuando el video está listo
+                startVideoReadyCheck();
                 
             } catch (error) {
                 handleCameraError(error);
             }
         }
         
-        // Manejar errores de cámara
-        function handleCameraError(error) {
-            console.error("Error al acceder a la cámara:", error);
-            
-            let errorMessage = "Error desconocido";
-            if (error.name === 'NotAllowedError') {
-                errorMessage = "Permiso denegado para acceder a la cámara";
-            } else if (error.name === 'NotFoundError') {
-                errorMessage = "No se encontró cámara trasera";
-            } else if (error.name === 'OverconstrainedError') {
-                errorMessage = "Configuración no soportada por la cámara";
-            } else {
-                errorMessage = error.message;
-            }
-            
-            showError(errorMessage);
-            statusEl.textContent = "Error: " + errorMessage;
-            retryBtn.classList.remove('hidden');
-            alternativeBtn.classList.remove('hidden');
-            permissionRequest.classList.add('hidden');
-        }
-        
-        // Configurar la cámara después de que esté lista
-        function setupCamera() {
-            try {
-                showDebugInfo("Configurando cámara...");
-                
-                // Asegurarse de que tenemos dimensiones válidas
-                const videoWidth = video.videoWidth || 1280;
-                const videoHeight = video.videoHeight || 720;
-                
-                showDebugInfo(`Dimensiones del video: ${videoWidth}x${videoHeight}`);
-                
-                // Ajustar el canvas de detección QR
-                qrCanvas.width = videoWidth;
-                qrCanvas.height = videoHeight;
-                
-                // Ajustar la cámara de Three.js
-                if (camera) {
-                    camera.aspect = videoWidth / videoHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(videoWidth, videoHeight);
-                    showDebugInfo("Propiedades de cámara actualizadas");
+        // Verificar cuando el video está listo usando intervalo
+        function startVideoReadyCheck() {
+            clearInterval(videoReadyInterval);
+            videoReadyInterval = setInterval(() => {
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                    clearInterval(videoReadyInterval);
+                    onVideoReady();
+                } else {
+                    loadingText.textContent = `Configurando cámara...`;
                 }
-                
-                showDebugInfo("Aplicación iniciada. Buscando QR...");
-                statusEl.textContent = "Cámara activada. Buscando códigos QR...";
-                
-                // Ocultar sección de inicialización
-                loadingSection.style.display = 'none';
-                
-                // Mostrar el logo de la universidad
-                universityLogo.classList.remove('logo-hidden');
-                
-                // Iniciar bucle de detección
-                startDetectionLoop();
-                
-            } catch (error) {
-                showError("Error en configuración: " + error.message);
-                retryBtn.classList.remove('hidden');
-                alternativeBtn.classList.remove('hidden');
-            }
+            }, 100);
         }
         
-        // Iniciar el bucle de detección
-        function startDetectionLoop() {
-            // Cancelar cualquier animación previa
-            if (animationId) {
-                cancelAnimationFrame(animationId);
+        // Cuando el video está listo
+        function onVideoReady() {
+            // Configurar canvas QR con las dimensiones del video
+            qrCanvas.width = video.videoWidth;
+            qrCanvas.height = video.videoHeight;
+            
+            // Ajustar el overlay de QR para que coincida con el video
+            const aspectRatio = video.videoWidth / video.videoHeight;
+            const overlay = document.getElementById('qr-overlay');
+            const overlayWidth = Math.min(300, window.innerWidth * 0.8);
+            overlay.style.width = `${overlayWidth}px`;
+            overlay.style.height = `${overlayWidth / aspectRatio}px`;
+            
+            // Ocultar pantalla de carga con animación
+            loadingEl.classList.add('loading-fadeout');
+            setTimeout(() => {
+                loadingEl.classList.add('hidden');
+            }, 500);
+            
+            // Iniciar bucle de detección
+            animationId = requestAnimationFrame(detectAndRender);
+        }
+        
+        // Manejar errores de la cámara
+        function handleCameraError(error) {
+            let errorMsg = "Error: ";
+            
+            switch(error.name) {
+                case 'NotAllowedError':
+                    errorMsg = "Permiso de cámara denegado. Por favor, permite el acceso a la cámara.";
+                    break;
+                case 'NotFoundError':
+                    errorMsg = "No se encontró cámara trasera. Intenta con la cámara frontal.";
+                    break;
+                case 'NotSupportedError':
+                    errorMsg = "Tu navegador no soporta la API de medios. Usa Chrome, Firefox o Edge.";
+                    break;
+                case 'NotReadableError':
+                    errorMsg = "La cámara no está disponible. Verifica si está siendo usada por otra aplicación.";
+                    break;
+                default:
+                    errorMsg = "Error al acceder a la cámara: " + error.message;
             }
             
-            // Iniciar nuevo bucle
-            animationId = requestAnimationFrame(detectAndRender);
+            statusEl.textContent = errorMsg;
+            startBtn.disabled = false;
+            hideLoadingScreen();
+        }
+        
+        // Ocultar la pantalla de carga
+        function hideLoadingScreen() {
+            loadingEl.classList.add('loading-fadeout');
+            setTimeout(() => {
+                loadingEl.classList.add('hidden');
+            }, 500);
         }
         
         // Bucle principal de detección y renderizado
         function detectAndRender() {
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                try {
-                    // Dibujar el frame actual en el canvas de detección QR
-                    qrCtx.drawImage(video, 0, 0, qrCanvas.width, qrCanvas.height);
-                    
-                    // Obtener datos de imagen para detección QR
-                    const imageData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
-                    const code = jsQR(imageData.data, imageData.width, imageData.height);
-                    
-                    // Procesar código QR detectado
-                    if (code) {
-                        handleQRDetection(code.data);
-                    } else if (currentPoster) {
-                        // Mantener el póster visible
-                        renderer.render(scene, camera);
-                    }
-                } catch (error) {
-                    showDebugInfo("Detección: " + error.message);
+                // Dibujar el frame actual en el canvas QR
+                qrCtx.drawImage(video, 0, 0, qrCanvas.width, qrCanvas.height);
+                
+                // Obtener datos de imagen para detección QR
+                const imageData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+                
+                // Intentar detectar código QR
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: 'dontInvert',
+                });
+                
+                // Procesar código QR detectado
+                if (code) {
+                    handleQRDetection(code.data);
                 }
             }
+            
+            // Renderizar la escena 3D
+            renderScene();
             
             // Continuar el bucle
             animationId = requestAnimationFrame(detectAndRender);
         }
         
+        // Renderizar la escena 3D
+        function renderScene() {
+            if (posterMesh) {
+                // Animar el afiche
+                posterMesh.rotation.y += 0.005;
+                posterMesh.position.y = Math.sin(Date.now() * 0.002) * 0.2;
+            }
+            
+            // Renderizar la escena
+            renderer.render(scene, camera);
+        }
+        
         // Manejar detección de código QR
         function handleQRDetection(qrData) {
+            // Comprobar si el QR corresponde a un afiche conocido
             if (postersDB[qrData] && qrData !== currentPoster) {
                 currentPoster = qrData;
                 const poster = postersDB[qrData];
@@ -771,60 +616,88 @@
                 posterDetails.textContent = poster.details;
                 posterInfoEl.classList.remove('hidden');
                 
-                // Crear el afiche en 3D
+                // Crear o actualizar el afiche en 3D
                 createPoster(poster);
+                
+                // Ocultar guía QR después de la detección
+                document.querySelector('.qr-guide').classList.add('hidden');
+                document.getElementById('qr-scan-animation').classList.add('hidden');
             }
         }
         
         // Crear un afiche en 3D
         function createPoster(poster) {
-            // Eliminar afiche anterior
+            // Eliminar afiche anterior si existe
             if (posterMesh) {
                 scene.remove(posterMesh);
             }
             
-            // Crear geometría
-            const geometry = new THREE.PlaneGeometry(2, 3);
+            // Crear geometría (plano para el afiche)
+            const geometry = new THREE.PlaneGeometry(3, 4);
             
-            // Crear material
+            // Crear material con color del póster
             const material = new THREE.MeshPhongMaterial({
                 color: poster.color,
                 side: THREE.DoubleSide,
                 emissive: poster.color,
-                emissiveIntensity: 0.2,
+                emissiveIntensity: 0.3,
                 specular: 0xffffff,
-                shininess: 30
+                shininess: 50,
+                wireframe: false
             });
             
             // Crear malla
             posterMesh = new THREE.Mesh(geometry, material);
-            posterMesh.position.set(0, 0, -5);
+            
+            // Posicionar frente a la cámara
+            posterMesh.position.set(0, 0, -8);
+            posterMesh.rotation.x = -0.2;
+            
+            // Añadir a la escena
             scene.add(posterMesh);
             
-            // Iniciar animación
-            animatePoster();
+            // Añadir borde al afiche para mejor visibilidad
+            const edges = new THREE.EdgesGeometry(geometry);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+            const wireframe = new THREE.LineSegments(edges, lineMaterial);
+            posterMesh.add(wireframe);
         }
         
-        // Animar el afiche
-        function animatePoster() {
-            if (!posterMesh) return;
+        // Mostrar mensaje de error
+        function showError(message) {
+            const errorHtml = `
+                <div class="error-overlay">
+                    <div class="error-content">
+                        <h2>Error en la aplicación</h2>
+                        <p>${message}</p>
+                        <p>Posibles soluciones:</p>
+                        <ul>
+                            <li>Asegúrate de usar un navegador compatible (Chrome, Firefox, Edge)</li>
+                            <li>Actualiza tu navegador a la última versión</li>
+                            <li>Verifica que tu dispositivo tenga aceleración gráfica habilitada</li>
+                            <li>Prueba reiniciando tu dispositivo</li>
+                            <li>Permite el acceso a la cámara si te lo solicita</li>
+                        </ul>
+                        <button onclick="location.reload()" class="btn">Reintentar</button>
+                    </div>
+                </div>
+            `;
             
-            posterMesh.rotation.y += 0.005;
-            posterMesh.position.y = Math.sin(Date.now() * 0.002) * 0.2;
-            renderer.render(scene, camera);
-            requestAnimationFrame(animatePoster);
+            document.body.insertAdjacentHTML('beforeend', errorHtml);
+            loadingEl.classList.add('hidden');
         }
         
-        // Manejar redimensionamiento
+        // Manejar redimensionamiento de ventana
         window.addEventListener('resize', () => {
-            if (renderer && camera) {
+            if (renderer) {
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
+                renderer.render(scene, camera);
             }
         });
         
-        // Limpieza
+        // Limpieza al cerrar
         window.addEventListener('beforeunload', () => {
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
@@ -832,8 +705,8 @@
             if (animationId) {
                 cancelAnimationFrame(animationId);
             }
-            if (cameraTimeout) {
-                clearTimeout(cameraTimeout);
+            if (videoReadyInterval) {
+                clearInterval(videoReadyInterval);
             }
         });
     </script>

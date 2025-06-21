@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Proyector AR de Afiches</title>
+    <title>Proyector AR Interactivo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
@@ -11,6 +11,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            touch-action: none;
         }
         
         body {
@@ -51,6 +52,7 @@
             z-index: 10;
             width: 100%;
             height: 100%;
+            touch-action: none;
         }
         
         #qr-canvas {
@@ -320,6 +322,26 @@
             50% { top: calc(50% + 140px); }
             100% { top: calc(50% - 140px); }
         }
+        
+        #rotation-hint {
+            position: absolute;
+            bottom: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 15;
+            backdrop-filter: blur(5px);
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            border: 1px solid rgba(77, 184, 255, 0.3);
+        }
+        
+        #rotation-hint.show {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -356,6 +378,8 @@
             <button id="start-btn" class="btn">Iniciar Experiencia AR</button>
             <div id="status">Preparado para escanear códigos QR</div>
         </div>
+        
+        <div id="rotation-hint">Gira el afiche con dos dedos</div>
     </div>
 
     <script>
@@ -365,6 +389,11 @@
         let videoStream = null;
         let animationId = null;
         let videoReadyInterval = null;
+        
+        // Variables para la rotación táctil
+        let isDragging = false;
+        let previousTouchPosition = { x: 0, y: 0 };
+        let rotationHintTimeout = null;
         
         // Base de datos de afiches por código QR
         const postersDB = {
@@ -403,6 +432,7 @@
         const posterTitle = document.getElementById('poster-title');
         const posterDesc = document.getElementById('poster-desc');
         const posterDetails = document.getElementById('poster-details');
+        const rotationHint = document.getElementById('rotation-hint');
         
         // Inicialización
         document.addEventListener('DOMContentLoaded', () => {
@@ -417,11 +447,74 @@
             // Configurar eventos
             startBtn.addEventListener('click', startCamera);
             
+            // Configurar eventos táctiles para rotación
+            setupTouchRotation();
+            
             // Intentar iniciar automáticamente en dispositivos móviles
             if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
                 setTimeout(startCamera, 1000);
             }
         });
+        
+        // Configurar eventos táctiles para rotación
+        function setupTouchRotation() {
+            webglCanvas.addEventListener('touchstart', handleTouchStart, false);
+            webglCanvas.addEventListener('touchmove', handleTouchMove, false);
+            webglCanvas.addEventListener('touchend', handleTouchEnd, false);
+        }
+        
+        // Manejar inicio de toque
+        function handleTouchStart(event) {
+            if (!posterMesh) return;
+            
+            isDragging = true;
+            previousTouchPosition = {
+                x: event.touches[0].clientX,
+                y: event.touches[0].clientY
+            };
+            
+            // Mostrar sugerencia de rotación
+            showRotationHint();
+        }
+        
+        // Manejar movimiento de toque
+        function handleTouchMove(event) {
+            if (!isDragging || !posterMesh) return;
+            
+            const touch = event.touches[0];
+            const deltaX = touch.clientX - previousTouchPosition.x;
+            const deltaY = touch.clientY - previousTouchPosition.y;
+            
+            // Aplicar rotación al afiche
+            posterMesh.rotation.y += deltaX * 0.01;
+            posterMesh.rotation.x += deltaY * 0.01;
+            
+            // Limitar rotación en X para evitar posiciones extrañas
+            posterMesh.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, posterMesh.rotation.x));
+            
+            previousTouchPosition = {
+                x: touch.clientX,
+                y: touch.clientY
+            };
+            
+            event.preventDefault();
+        }
+        
+        // Manejar fin de toque
+        function handleTouchEnd() {
+            isDragging = false;
+        }
+        
+        // Mostrar sugerencia de rotación
+        function showRotationHint() {
+            rotationHint.classList.add('show');
+            
+            // Ocultar después de 3 segundos
+            clearTimeout(rotationHintTimeout);
+            rotationHintTimeout = setTimeout(() => {
+                rotationHint.classList.remove('show');
+            }, 3000);
+        }
         
         // Inicializar Three.js
         function initThreeJS() {
@@ -592,9 +685,12 @@
         
         // Renderizar la escena 3D
         function renderScene() {
-            if (posterMesh) {
-                // Animar el afiche
+            // Solo animar si no se está arrastrando
+            if (posterMesh && !isDragging) {
+                // Rotación suave automática
                 posterMesh.rotation.y += 0.005;
+                
+                // Efecto de flotación
                 posterMesh.position.y = Math.sin(Date.now() * 0.002) * 0.2;
             }
             
@@ -625,7 +721,7 @@
             }
         }
         
-        // Crear un afiche en 3D
+        // Crear un afiche en 3D con rotación táctil
         function createPoster(poster) {
             // Eliminar afiche anterior si existe
             if (posterMesh) {
@@ -661,6 +757,9 @@
             const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
             const wireframe = new THREE.LineSegments(edges, lineMaterial);
             posterMesh.add(wireframe);
+            
+            // Mostrar sugerencia de rotación
+            showRotationHint();
         }
         
         // Mostrar mensaje de error
@@ -707,6 +806,9 @@
             }
             if (videoReadyInterval) {
                 clearInterval(videoReadyInterval);
+            }
+            if (rotationHintTimeout) {
+                clearTimeout(rotationHintTimeout);
             }
         });
     </script>

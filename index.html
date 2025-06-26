@@ -770,9 +770,9 @@
                 
                 // Ajustar la cámara de Three.js
                 if (camera) {
-                    camera.aspect = videoWidth / videoHeight;
+                    camera.aspect = window.innerWidth / window.innerHeight;
                     camera.updateProjectionMatrix();
-                    renderer.setSize(videoWidth, videoHeight);
+                    renderer.setSize(window.innerWidth, window.innerHeight);
                     showDebugInfo("Propiedades de cámara actualizadas");
                 }
                 
@@ -906,8 +906,8 @@
             const distance = 5;
             const visibleSize = calculateVisibleSize(distance);
             
-            // Tamaño del afiche (80% del área visible)
-            const scaleFactor = 0.8;
+            // Tamaño del afiche (70% del área visible)
+            const scaleFactor = 0.7;
             const width = visibleSize.width * scaleFactor;
             const height = width * 0.75; // Relación de aspecto 4:3
             
@@ -924,9 +924,12 @@
                 posterMaterials[poster.color] = material;
             }
             
-            // Crear malla y centrarla
+            // Crear malla y centrarla perfectamente
             posterMesh = new THREE.Mesh(posterGeometry, material);
+            
+            // Posicionar para que esté perfectamente centrado
             posterMesh.position.set(0, 0, -distance);
+            
             scene.add(posterMesh);
             
             // Iniciar animación
@@ -958,6 +961,9 @@
             removePoster();
             posterInfoEl.classList.add('hidden');
             statusEl.textContent = "Buscando códigos QR...";
+            
+            // Resetear poster actual
+            currentPoster = null;
         }
         
         // Animar el afiche optimizado

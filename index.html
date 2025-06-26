@@ -308,17 +308,40 @@
             gap: 15px;
         }
         
-        .cooldown-indicator {
+        /* Nuevos estilos para el spinner de enfriamiento */
+        #cooldown-spinner {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.7);
-            padding: 20px;
-            border-radius: 10px;
-            font-size: 20px;
+            top: 20px;
+            right: 20px;
+            width: 30px;
+            height: 30px;
             z-index: 45;
             display: none;
+        }
+        
+        .cooldown-spinner-circle {
+            width: 100%;
+            height: 100%;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #4db8ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        .cooldown-spinner-inner {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top-color: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            animation: spin-reverse 1.5s linear infinite;
+        }
+        
+        @keyframes spin-reverse {
+            to { transform: rotate(-360deg); }
         }
     </style>
 </head>
@@ -384,10 +407,10 @@
         <div id="debug-info">Estado: Inicializando...</div>
         <div id="performance-info" class="performance-info">FPS: -- | Mem: -- MB</div>
         
-        <!-- Indicador de enfriamiento -->
-        <div id="cooldown-indicator" class="cooldown-indicator">
-            <div>Espera 10 segundos para nueva lectura</div>
-            <div id="cooldown-timer">10</div>
+        <!-- Nuevo spinner para enfriamiento -->
+        <div id="cooldown-spinner">
+            <div class="cooldown-spinner-circle"></div>
+            <div class="cooldown-spinner-inner"></div>
         </div>
     </div>
 
@@ -433,8 +456,7 @@
         const initComplete = document.getElementById('init-complete');
         const performanceInfo = document.getElementById('performance-info');
         const loadingControls = document.getElementById('loading-controls');
-        const cooldownIndicator = document.getElementById('cooldown-indicator');
-        const cooldownTimerEl = document.getElementById('cooldown-timer');
+        const cooldownSpinner = document.getElementById('cooldown-spinner');
         
         // Base de datos de afiches
         const postersDB = {
@@ -838,6 +860,14 @@
             animationId = requestAnimationFrame(detectAndRender);
         }
         
+        // Función para calcular tamaño visible en unidades 3D
+        function calculateVisibleSize(distance) {
+            const fovRad = THREE.MathUtils.degToRad(camera.fov);
+            const height = 2 * Math.tan(fovRad / 2) * distance;
+            const width = height * camera.aspect;
+            return { width, height };
+        }
+        
         // Manejar detección de código QR
         function handleQRDetection(qrData) {
             if (postersDB[qrData] && qrData !== currentPoster && !cooldownActive) {
@@ -872,10 +902,14 @@
             // Eliminar afiche anterior
             removePoster();
             
-            // Calcular tamaño para ajustar a la pantalla
-            const aspectRatio = window.innerWidth / window.innerHeight;
-            const width = Math.min(4, 3 * aspectRatio); // Máximo 4 unidades de ancho
-            const height = width / aspectRatio * 0.75; // Mantener relación de aspecto
+            // Calcular tamaño visible a 5 unidades de distancia
+            const distance = 5;
+            const visibleSize = calculateVisibleSize(distance);
+            
+            // Tamaño del afiche (80% del área visible)
+            const scaleFactor = 0.8;
+            const width = visibleSize.width * scaleFactor;
+            const height = width * 0.75; // Relación de aspecto 4:3
             
             // Crear geometría con tamaño ajustado
             posterGeometry = new THREE.PlaneGeometry(width, height);
@@ -892,9 +926,7 @@
             
             // Crear malla y centrarla
             posterMesh = new THREE.Mesh(posterGeometry, material);
-            
-            // Posicionar para que se vea completo
-            posterMesh.position.set(0, 0, -5);
+            posterMesh.position.set(0, 0, -distance);
             scene.add(posterMesh);
             
             // Iniciar animación
@@ -904,30 +936,23 @@
         // Iniciar enfriamiento de 10 segundos
         function startCooldown() {
             cooldownActive = true;
-            cooldownTimeLeft = 10;
             
-            // Mostrar indicador de enfriamiento
-            cooldownIndicator.style.display = 'block';
-            cooldownTimerEl.textContent = cooldownTimeLeft;
+            // Mostrar spinner de enfriamiento
+            cooldownSpinner.style.display = 'block';
             
-            // Actualizar temporizador cada segundo
-            cooldownTimer = setInterval(() => {
-                cooldownTimeLeft--;
-                cooldownTimerEl.textContent = cooldownTimeLeft;
-                
-                if (cooldownTimeLeft <= 0) {
-                    endCooldown();
-                }
-            }, 1000);
+            // Configurar temporizador para finalizar el cooldown
+            cooldownTimer = setTimeout(() => {
+                endCooldown();
+            }, 10000); // 10 segundos
         }
         
         // Finalizar enfriamiento
         function endCooldown() {
-            clearInterval(cooldownTimer);
+            clearTimeout(cooldownTimer);
             cooldownActive = false;
             
-            // Ocultar indicador
-            cooldownIndicator.style.display = 'none';
+            // Ocultar spinner
+            cooldownSpinner.style.display = 'none';
             
             // Eliminar afiche y ocultar información
             removePoster();
@@ -972,7 +997,7 @@
                 clearTimeout(cameraTimeout);
             }
             if (cooldownTimer) {
-                clearInterval(cooldownTimer);
+                clearTimeout(cooldownTimer);
             }
         });
     </script>

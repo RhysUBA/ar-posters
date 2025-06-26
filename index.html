@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
+        /* Estilos optimizados y simplificados */
         * {
             margin: 0;
             padding: 0;
@@ -21,25 +22,24 @@
             overflow: hidden;
         }
         
-        #container {
-            position: relative;
+        #loading-section {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
+            background: rgba(0, 0, 0, 0.95);
             display: flex;
-            flex-direction: column;
-        }
-        
-        #loading-section {
-            background: rgba(0, 0, 0, 0.85);
-            padding: 20px;
-            text-align: center;
-            z-index: 100;
-            flex-shrink: 0;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
         }
         
         .loading-content {
             max-width: 600px;
-            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
         }
         
         .spinner-container {
@@ -87,8 +87,9 @@
         }
         
         #main-content {
-            flex-grow: 1;
             position: relative;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
             display: none;
         }
@@ -291,10 +292,22 @@
             font-size: 14px;
             z-index: 40;
         }
+        
+        .fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-complete {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
     </style>
 </head>
 <body>
-    <!-- Sección de inicialización (no bloqueante) -->
+    <!-- Sección de inicialización -->
     <div id="loading-section">
         <div class="loading-content">
             <div class="loading-text">Inicializando Realidad Aumentada</div>
@@ -320,12 +333,15 @@
                 <p>Ahora puedes iniciar la cámara cuando estés listo</p>
             </div>
             
-            <button id="retry-btn" class="btn btn-retry hidden">Reintentar Inicialización</button>
-            <button id="alternative-btn" class="btn btn-alternative hidden">Modo Alternativo</button>
+            <div id="loading-controls" class="loading-complete hidden">
+                <button id="start-loading-btn" class="btn">Iniciar Cámara</button>
+                <button id="retry-btn" class="btn btn-retry">Reintentar Inicialización</button>
+                <button id="alternative-btn" class="btn btn-alternative">Modo Alternativo</button>
+            </div>
         </div>
     </div>
     
-    <!-- Contenido principal (se mostrará después de la inicialización) -->
+    <!-- Contenido principal -->
     <div id="main-content">
         <div id="video-container">
             <video id="video" playsinline autoplay muted></video>
@@ -345,7 +361,7 @@
         </div>
         
         <div id="control-panel">
-            <button id="start-btn" class="btn">Iniciar Cámara</button>
+            <button id="start-btn" class="btn">Reiniciar Cámara</button>
             <div id="status">Esperando activación de la cámara...</div>
         </div>
         
@@ -366,7 +382,7 @@
         let qrDetectionCanvas, qrDetectionCtx;
         let posterGeometry = null;
         let posterMaterials = {};
-        let fpsMeter, lastFrameTime = 0;
+        let lastFrameTime = 0;
         let frameCount = 0;
         let frameTimes = [];
         
@@ -377,6 +393,7 @@
         const retryBtn = document.getElementById('retry-btn');
         const alternativeBtn = document.getElementById('alternative-btn');
         const startBtn = document.getElementById('start-btn');
+        const startLoadingBtn = document.getElementById('start-loading-btn');
         const statusEl = document.getElementById('status');
         const debugInfo = document.getElementById('debug-info');
         const posterInfoEl = document.getElementById('poster-info');
@@ -388,6 +405,7 @@
         const enableCameraBtn = document.getElementById('enable-camera-btn');
         const initComplete = document.getElementById('init-complete');
         const performanceInfo = document.getElementById('performance-info');
+        const loadingControls = document.getElementById('loading-controls');
         
         // Base de datos de afiches
         const postersDB = {
@@ -564,13 +582,16 @@
             
             // Si todo está bien, mostrar mensaje de inicialización completa
             initComplete.classList.remove('hidden');
+            loadingControls.classList.remove('hidden');
             loadingStatus.textContent = "Inicialización completada";
             
             // Configurar eventos
-            startBtn.addEventListener('click', requestCameraAccess);
+            startLoadingBtn.addEventListener('click', requestCameraAccess);
             retryBtn.addEventListener('click', () => {
                 location.reload();
             });
+            
+            startBtn.addEventListener('click', requestCameraAccess);
             
             enableCameraBtn.addEventListener('click', requestCameraAccess);
             
@@ -580,9 +601,6 @@
             });
             
             showDebugInfo("Esperando inicio de cámara...");
-            
-            // Mostrar el contenido principal
-            mainContent.style.display = 'block';
         });
         
         // Solicitar acceso a la cámara
@@ -591,7 +609,7 @@
             
             permissionRequested = true;
             loadingStatus.textContent = "Solicitando acceso a la cámara...";
-            startBtn.disabled = true;
+            startLoadingBtn.disabled = true;
             retryBtn.classList.add('hidden');
             alternativeBtn.classList.add('hidden');
             statusEl.textContent = "Iniciando cámara...";
@@ -685,6 +703,7 @@
             retryBtn.classList.remove('hidden');
             alternativeBtn.classList.remove('hidden');
             permissionRequest.classList.add('hidden');
+            startLoadingBtn.disabled = false;
         }
         
         // Configurar la cámara después de que esté lista
@@ -709,8 +728,12 @@
                 showDebugInfo("Aplicación iniciada. Buscando QR...");
                 statusEl.textContent = "Cámara activada. Buscando códigos QR...";
                 
-                // Ocultar sección de inicialización
-                loadingSection.style.display = 'none';
+                // Ocultar sección de inicialización y mostrar contenido principal
+                loadingSection.classList.add('fade-out');
+                setTimeout(() => {
+                    loadingSection.style.display = 'none';
+                    mainContent.style.display = 'block';
+                }, 500);
                 
                 // Iniciar bucle de detección
                 startDetectionLoop();
@@ -723,6 +746,7 @@
                 showError("Error en configuración: " + error.message);
                 retryBtn.classList.remove('hidden');
                 alternativeBtn.classList.remove('hidden');
+                startLoadingBtn.disabled = false;
             }
         }
         

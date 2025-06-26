@@ -7,7 +7,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
-        /* Estilos optimizados */
         * {
             margin: 0;
             padding: 0;
@@ -107,7 +106,6 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1);
         }
         
         #threejs-canvas {
@@ -308,7 +306,6 @@
             gap: 15px;
         }
         
-        /* Nuevos estilos para el spinner de enfriamiento */
         #cooldown-spinner {
             position: absolute;
             top: 20px;
@@ -407,7 +404,6 @@
         <div id="debug-info">Estado: Inicializando...</div>
         <div id="performance-info" class="performance-info">FPS: -- | Mem: -- MB</div>
         
-        <!-- Nuevo spinner para enfriamiento -->
         <div id="cooldown-spinner">
             <div class="cooldown-spinner-circle"></div>
             <div class="cooldown-spinner-inner"></div>
@@ -434,7 +430,7 @@
         // Nuevas variables para el enfriamiento
         let cooldownActive = false;
         let cooldownTimer = null;
-        let cooldownTimeLeft = 10;
+        let posterAnimationId = null; // Para controlar la animación del póster
         
         // Referencias a elementos de UI
         const loadingSection = document.getElementById('loading-section');
@@ -895,6 +891,11 @@
                 scene.remove(posterMesh);
                 posterMesh = null;
             }
+            // Cancelar animación del póster si está en curso
+            if (posterAnimationId) {
+                cancelAnimationFrame(posterAnimationId);
+                posterAnimationId = null;
+            }
         }
         
         // Crear un afiche en 3D optimizado y centrado
@@ -973,7 +974,7 @@
             posterMesh.rotation.y += 0.005;
             posterMesh.position.y = Math.sin(Date.now() * 0.002) * 0.2;
             renderer.render(scene, camera);
-            requestAnimationFrame(animatePoster);
+            posterAnimationId = requestAnimationFrame(animatePoster);
         }
         
         // Manejar redimensionamiento
@@ -1004,6 +1005,9 @@
             }
             if (cooldownTimer) {
                 clearTimeout(cooldownTimer);
+            }
+            if (posterAnimationId) {
+                cancelAnimationFrame(posterAnimationId);
             }
         });
     </script>

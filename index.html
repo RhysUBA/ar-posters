@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Proyector AR Optimizado</title>
+    <title>Proyector AR Mejorado</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
-        /* Estilos optimizados y simplificados */
+        /* Estilos optimizados */
         * {
             margin: 0;
             padding: 0;
@@ -150,6 +150,7 @@
             right: 0;
             animation: fadeIn 0.5s ease;
             z-index: 25;
+            transition: opacity 0.5s ease;
         }
         
         @keyframes fadeIn {
@@ -170,6 +171,8 @@
         
         .hidden {
             display: none;
+            opacity: 0;
+            pointer-events: none;
         }
         
         #qr-overlay {
@@ -304,6 +307,19 @@
             align-items: center;
             gap: 15px;
         }
+        
+        .cooldown-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 20px;
+            z-index: 45;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -367,6 +383,12 @@
         
         <div id="debug-info">Estado: Inicializando...</div>
         <div id="performance-info" class="performance-info">FPS: -- | Mem: -- MB</div>
+        
+        <!-- Indicador de enfriamiento -->
+        <div id="cooldown-indicator" class="cooldown-indicator">
+            <div>Espera 10 segundos para nueva lectura</div>
+            <div id="cooldown-timer">10</div>
+        </div>
     </div>
 
     <script>
@@ -385,6 +407,11 @@
         let lastFrameTime = 0;
         let frameCount = 0;
         let frameTimes = [];
+        
+        // Nuevas variables para el enfriamiento
+        let cooldownActive = false;
+        let cooldownTimer = null;
+        let cooldownTimeLeft = 10;
         
         // Referencias a elementos de UI
         const loadingSection = document.getElementById('loading-section');
@@ -406,6 +433,8 @@
         const initComplete = document.getElementById('init-complete');
         const performanceInfo = document.getElementById('performance-info');
         const loadingControls = document.getElementById('loading-controls');
+        const cooldownIndicator = document.getElementById('cooldown-indicator');
+        const cooldownTimerEl = document.getElementById('cooldown-timer');
         
         // Base de datos de afiches
         const postersDB = {
@@ -774,7 +803,7 @@
             }
             
             // Solo procesar detección QR cada cierto tiempo para ahorrar recursos
-            if (timeSinceLastDetection > detectionInterval) {
+            if (timeSinceLastDetection > detectionInterval && !cooldownActive) {
                 lastDetectionTime = now;
                 
                 if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -787,7 +816,7 @@
                         // Procesar código QR detectado
                         if (code) {
                             handleQRDetection(code.data);
-                        } else if (currentPoster) {
+                        } else if (currentPoster && !cooldownActive) {
                             // Si había un póster pero ya no detectamos QR
                             currentPoster = null;
                             removePoster();
@@ -811,7 +840,7 @@
         
         // Manejar detección de código QR
         function handleQRDetection(qrData) {
-            if (postersDB[qrData] && qrData !== currentPoster) {
+            if (postersDB[qrData] && qrData !== currentPoster && !cooldownActive) {
                 currentPoster = qrData;
                 const poster = postersDB[qrData];
                 
@@ -824,6 +853,9 @@
                 
                 // Crear el afiche en 3D
                 createPoster(poster);
+                
+                // Iniciar enfriamiento de 10 segundos
+                startCooldown();
             }
         }
         
@@ -835,15 +867,18 @@
             }
         }
         
-        // Crear un afiche en 3D optimizado
+        // Crear un afiche en 3D optimizado y centrado
         function createPoster(poster) {
             // Eliminar afiche anterior
             removePoster();
             
-            // Crear geometría reutilizable si no existe
-            if (!posterGeometry) {
-                posterGeometry = new THREE.PlaneGeometry(2, 3);
-            }
+            // Calcular tamaño para ajustar a la pantalla
+            const aspectRatio = window.innerWidth / window.innerHeight;
+            const width = Math.min(4, 3 * aspectRatio); // Máximo 4 unidades de ancho
+            const height = width / aspectRatio * 0.75; // Mantener relación de aspecto
+            
+            // Crear geometría con tamaño ajustado
+            posterGeometry = new THREE.PlaneGeometry(width, height);
             
             // Crear o reutilizar material
             let material = posterMaterials[poster.color];
@@ -855,13 +890,49 @@
                 posterMaterials[poster.color] = material;
             }
             
-            // Crear malla
+            // Crear malla y centrarla
             posterMesh = new THREE.Mesh(posterGeometry, material);
+            
+            // Posicionar para que se vea completo
             posterMesh.position.set(0, 0, -5);
             scene.add(posterMesh);
             
             // Iniciar animación
             animatePoster();
+        }
+        
+        // Iniciar enfriamiento de 10 segundos
+        function startCooldown() {
+            cooldownActive = true;
+            cooldownTimeLeft = 10;
+            
+            // Mostrar indicador de enfriamiento
+            cooldownIndicator.style.display = 'block';
+            cooldownTimerEl.textContent = cooldownTimeLeft;
+            
+            // Actualizar temporizador cada segundo
+            cooldownTimer = setInterval(() => {
+                cooldownTimeLeft--;
+                cooldownTimerEl.textContent = cooldownTimeLeft;
+                
+                if (cooldownTimeLeft <= 0) {
+                    endCooldown();
+                }
+            }, 1000);
+        }
+        
+        // Finalizar enfriamiento
+        function endCooldown() {
+            clearInterval(cooldownTimer);
+            cooldownActive = false;
+            
+            // Ocultar indicador
+            cooldownIndicator.style.display = 'none';
+            
+            // Eliminar afiche y ocultar información
+            removePoster();
+            posterInfoEl.classList.add('hidden');
+            statusEl.textContent = "Buscando códigos QR...";
         }
         
         // Animar el afiche optimizado
@@ -880,6 +951,12 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
+                
+                // Si hay un afiche visible, reajustar su tamaño
+                if (posterMesh && currentPoster) {
+                    const poster = postersDB[currentPoster];
+                    createPoster(poster);
+                }
             }
         });
         
@@ -893,6 +970,9 @@
             }
             if (cameraTimeout) {
                 clearTimeout(cameraTimeout);
+            }
+            if (cooldownTimer) {
+                clearInterval(cooldownTimer);
             }
         });
     </script>

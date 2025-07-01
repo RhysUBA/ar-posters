@@ -340,6 +340,24 @@
         @keyframes spin-reverse {
             to { transform: rotate(-360deg); }
         }
+
+        .progress-container {
+            width: 80%;
+            max-width: 300px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px auto;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #3498db, #4db8ff);
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
     </style>
 </head>
 <body>
@@ -355,6 +373,10 @@
             <div id="loading-status" class="loading-status">Comprobando compatibilidad...</div>
             
             <div id="compatibility-result"></div>
+            
+            <div class="progress-container">
+                <div id="init-progress" class="progress-bar"></div>
+            </div>
             
             <div id="permission-request" class="hidden">
                 <div class="permission-request">
@@ -453,8 +475,9 @@
         const performanceInfo = document.getElementById('performance-info');
         const loadingControls = document.getElementById('loading-controls');
         const cooldownSpinner = document.getElementById('cooldown-spinner');
+        const initProgress = document.getElementById('init-progress');
         
-        // Base de datos de afiches
+        // Base de datos de afiches corregida
         const postersDB = {
             "proyecto-luis": {
                 title: "Planta de Reciclaje",
@@ -499,6 +522,11 @@
                 color: 0xe74c3c
             },
         };
+        
+        // Actualizar barra de progreso
+        function updateProgress(percentage) {
+            initProgress.style.width = `${percentage}%`;
+        }
         
         // Función para mostrar información de rendimiento
         function updatePerformanceInfo() {
@@ -550,7 +578,7 @@
             loadingStatus.textContent = message;
         }
         
-        // Verificar compatibilidad con WebGL
+        // Verificar compatibilidad con WebGL corregida
         function checkWebGLSupport() {
             try {
                 const canvas = document.createElement('canvas');
@@ -559,6 +587,7 @@
                 if (gl && gl instanceof WebGLRenderingContext) {
                     showDebugInfo("WebGL es compatible con este dispositivo");
                     showSuccess("WebGL está disponible y funcionando");
+                    updateProgress(33);
                     return true;
                 }
                 
@@ -608,6 +637,7 @@
                 
                 showDebugInfo("Three.js inicializado correctamente");
                 loadingStatus.textContent = "Three.js listo. Puedes iniciar la cámara";
+                updateProgress(66);
                 return true;
                 
             } catch (error) {
@@ -623,12 +653,16 @@
             qrDetectionCanvas.width = 320;
             qrDetectionCanvas.height = 240;
             qrDetectionCtx = qrDetectionCanvas.getContext('2d');
+            updateProgress(100);
         }
         
-        // Inicialización de la página
+        // Inicialización de la página corregida
         document.addEventListener('DOMContentLoaded', () => {
             showDebugInfo("DOM cargado. Iniciando comprobaciones...");
             video = document.getElementById('video');
+            
+            // Actualizar progreso
+            updateProgress(10);
             
             // 1. Verificar compatibilidad WebGL
             if (!checkWebGLSupport()) {

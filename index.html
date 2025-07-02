@@ -358,6 +358,24 @@
             transition: width 0.3s ease;
             border-radius: 10px;
         }
+        
+        /* Nuevo spinner para carga de imágenes */
+        .image-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+        
+        .image-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #4db8ff;
+            animation: spin 1s linear infinite;
+        }
     </style>
 </head>
 <body>
@@ -430,6 +448,11 @@
             <div class="cooldown-spinner-circle"></div>
             <div class="cooldown-spinner-inner"></div>
         </div>
+        
+        <!-- Spinner para carga de imágenes -->
+        <div id="image-loading" class="image-loading hidden">
+            <div class="image-spinner"></div>
+        </div>
     </div>
 
     <script>
@@ -454,6 +477,10 @@
         let cooldownTimer = null;
         let posterAnimationId = null; // Para controlar la animación del póster
         
+        // Cache para texturas
+        let textureCache = {};
+        let textureLoader = new THREE.TextureLoader();
+        
         // Referencias a elementos de UI
         const loadingSection = document.getElementById('loading-section');
         const mainContent = document.getElementById('main-content');
@@ -476,50 +503,58 @@
         const loadingControls = document.getElementById('loading-controls');
         const cooldownSpinner = document.getElementById('cooldown-spinner');
         const initProgress = document.getElementById('init-progress');
+        const imageLoadingEl = document.getElementById('image-loading');
         
-        // Base de datos de afiches corregida
+        // Base de datos de afiches modificada para incluir URLs de imágenes
         const postersDB = {
             "proyecto-luis": {
                 title: "Planta de Reciclaje",
                 description: "Obras de artistas emergentes en la galería central",
                 details: "Del 15 de Julio al 30 de Agosto, 2023 | Entrada gratuita",
-                color: 0x3498db
+                color: 0x3498db,
+                imageUrl: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1474&q=80"
             },
             "proyecto-sebas": {
                 title: "Immersive 3D",
                 description: "Experiencia multiscreen con Portalgraph",
                 details: "Desarrollo por: Sebastián García",
-                color: 0xe74c3c
+                color: 0xe74c3c,
+                imageUrl: "https://images.unsplash.com/photo-1593508512255-86ab42a8e620?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1478&q=80"
             },
             "proyecto-manuel": {
                 title: "HearBeat Live",
                 description: "Aplicación web para sensor de pulso",
                 details: "Desarrollado por Manuel Fereira",
-                color: 0x2ecc71
+                color: 0x2ecc71,
+                imageUrl: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
             },
             "proyecto-yanny": {
                 title: "Festival de Música Urbana",
                 description: "Los mejores artistas urbanos en un solo escenario",
                 details: "25 de Agosto | Estadio Municipal | Desde $15.000",
-                color: 0xf39c12
+                color: 0xf39c12,
+                imageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
             },
-            "proyecto-camila": {
-                title: "Mouse virtual",
-                description: "Obras clásicas y contemporáneas en el parque central",
-                details: "Todos los viernes y sábados de Julio | 19:00 hrs",
-                color: 0xe74c3c
+            "proyecto-sebas2": {
+                title: "Tour de Realidad Virtual de la UBA",
+                description: "Acompañanos a ver la UBA en su recorrido virtual por sus instalaciones",
+                details: "Desarrollado por Sebastian",
+                color: 0xe74c3c,
+                imageUrl: "https://imgur.com/a/FBmFdlQ"
             },
             "proyecto-julio": {
                 title: "Asistente Cognitivo en Automatización Electrónica",
                 description: "Ponente: Juliocesar Nava",
                 details: "Miércoles 02/07/25 | 11:30 hrs",
-                color: 0xe74c3c
+                color: 0xe74c3c,
+                imageUrl: "https://images.unsplash.com/photo-1533750349088-cd871a92f312?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
             },
             "proyecto-santiago": {
                 title: "VPN",
                 description: "Obras clásicas y contemporáneas en el parque central",
                 details: "Todos los viernes y sábados de Julio | 19:00 hrs",
-                color: 0xe74c3c
+                color: 0xe74c3c,
+                imageUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
             },
         };
         
@@ -950,7 +985,7 @@
             }
         }
         
-        // Crear un afiche en 3D optimizado y centrado
+        // Crear un afiche en 3D optimizado y centrado con imagen
         function createPoster(poster) {
             // Eliminar afiche anterior
             removePoster();
@@ -967,26 +1002,66 @@
             // Crear geometría con tamaño ajustado
             posterGeometry = new THREE.PlaneGeometry(width, height);
             
-            // Crear o reutilizar material
-            let material = posterMaterials[poster.color];
-            if (!material) {
-                material = new THREE.MeshBasicMaterial({
-                    color: poster.color,
-                    side: THREE.DoubleSide
-                });
-                posterMaterials[poster.color] = material;
-            }
+            // Mostrar spinner de carga de imagen
+            imageLoadingEl.classList.remove('hidden');
             
-            // Crear malla y centrarla perfectamente
-            posterMesh = new THREE.Mesh(posterGeometry, material);
+            // Material temporal mientras se carga la imagen
+            const tempMaterial = new THREE.MeshBasicMaterial({
+                color: poster.color,
+                side: THREE.DoubleSide
+            });
             
-            // Posicionar para que esté perfectamente centrado
+            // Crear malla temporal
+            posterMesh = new THREE.Mesh(posterGeometry, tempMaterial);
             posterMesh.position.set(0, 0, -distance);
-            
             scene.add(posterMesh);
+            
+            // Cargar imagen si está disponible
+            if (poster.imageUrl) {
+                // Verificar si la textura ya está en caché
+                if (textureCache[poster.imageUrl]) {
+                    applyTextureToPoster(textureCache[poster.imageUrl]);
+                    imageLoadingEl.classList.add('hidden');
+                } else {
+                    // Cargar la textura
+                    textureLoader.load(
+                        poster.imageUrl,
+                        (texture) => {
+                            // Guardar en caché para uso futuro
+                            textureCache[poster.imageUrl] = texture;
+                            applyTextureToPoster(texture);
+                            imageLoadingEl.classList.add('hidden');
+                        },
+                        undefined, // Sin callback de progreso
+                        (error) => {
+                            console.error('Error al cargar la textura:', error);
+                            // Mantener el material de color
+                            imageLoadingEl.classList.add('hidden');
+                            showDebugInfo("Error al cargar imagen. Usando color de respaldo");
+                        }
+                    );
+                }
+            }
             
             // Iniciar animación
             animatePoster();
+        }
+        
+        // Aplicar textura al póster
+        function applyTextureToPoster(texture) {
+            if (!posterMesh) return;
+            
+            // Crear nuevo material con textura
+            const textureMaterial = new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.DoubleSide
+            });
+            
+            // Aplicar el nuevo material
+            posterMesh.material = textureMaterial;
+            
+            // Forzar renderizado
+            renderer.render(scene, camera);
         }
         
         // Iniciar enfriamiento de 10 segundos

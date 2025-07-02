@@ -376,6 +376,23 @@
             border-top-color: #4db8ff;
             animation: spin 1s linear infinite;
         }
+        
+        /* Nuevo mensaje de error para imágenes */
+        .image-error {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff6b6b;
+            font-size: 14px;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -453,6 +470,9 @@
         <div id="image-loading" class="image-loading hidden">
             <div class="image-spinner"></div>
         </div>
+        
+        <!-- Mensaje de error para imágenes -->
+        <div id="image-error" class="image-error hidden">Error al cargar la imagen</div>
     </div>
 
     <script>
@@ -504,8 +524,9 @@
         const cooldownSpinner = document.getElementById('cooldown-spinner');
         const initProgress = document.getElementById('init-progress');
         const imageLoadingEl = document.getElementById('image-loading');
+        const imageErrorEl = document.getElementById('image-error');
         
-        // Base de datos de afiches modificada para incluir URLs de imágenes
+        // Base de datos de afiches con URLs CORRECTAS para imágenes
         const postersDB = {
             "proyecto-luis": {
                 title: "Planta de Reciclaje",
@@ -540,6 +561,7 @@
                 description: "Acompañanos a ver la UBA en su recorrido virtual por sus instalaciones",
                 details: "Desarrollado por Sebastian",
                 color: 0xe74c3c,
+                // URL CORREGIDA - debe ser una imagen directa, no una página web
                 imageUrl: "https://i.imgur.com/f7Q10jT.png"
             },
             "proyecto-julio": {
@@ -983,6 +1005,10 @@
                 cancelAnimationFrame(posterAnimationId);
                 posterAnimationId = null;
             }
+            
+            // Ocultar elementos de carga de imágenes
+            imageLoadingEl.classList.add('hidden');
+            imageErrorEl.classList.add('hidden');
         }
         
         // Crear un afiche en 3D optimizado y centrado con imagen
@@ -1004,6 +1030,7 @@
             
             // Mostrar spinner de carga de imagen
             imageLoadingEl.classList.remove('hidden');
+            imageErrorEl.classList.add('hidden');
             
             // Material temporal mientras se carga la imagen
             const tempMaterial = new THREE.MeshBasicMaterial({
@@ -1023,23 +1050,28 @@
                     applyTextureToPoster(textureCache[poster.imageUrl]);
                     imageLoadingEl.classList.add('hidden');
                 } else {
-                    // Cargar la textura
-                    textureLoader.load(
-                        poster.imageUrl,
-                        (texture) => {
-                            // Guardar en caché para uso futuro
-                            textureCache[poster.imageUrl] = texture;
-                            applyTextureToPoster(texture);
-                            imageLoadingEl.classList.add('hidden');
-                        },
-                        undefined, // Sin callback de progreso
-                        (error) => {
-                            console.error('Error al cargar la textura:', error);
-                            // Mantener el material de color
-                            imageLoadingEl.classList.add('hidden');
-                            showDebugInfo("Error al cargar imagen. Usando color de respaldo");
-                        }
-                    );
+                    // Solución para problemas de CORS
+                    const image = new Image();
+                    image.crossOrigin = "Anonymous"; // Permitir CORS
+                    
+                    image.onload = function() {
+                        const texture = new THREE.Texture(image);
+                        texture.needsUpdate = true;
+                        
+                        // Guardar en caché para uso futuro
+                        textureCache[poster.imageUrl] = texture;
+                        applyTextureToPoster(texture);
+                        imageLoadingEl.classList.add('hidden');
+                    };
+                    
+                    image.onerror = function(error) {
+                        console.error('Error al cargar la imagen:', error);
+                        showDebugInfo("Error al cargar imagen. Usando color de respaldo");
+                        imageLoadingEl.classList.add('hidden');
+                        imageErrorEl.classList.remove('hidden');
+                    };
+                    
+                    image.src = poster.imageUrl;
                 }
             }
             
